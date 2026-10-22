@@ -14,8 +14,41 @@ const TYPES = {
   '.svg': 'image/svg+xml',
 };
 
+// Ogni scheda aperta tiene una connessione su /events: quando l'ultima si
+// chiude (e non si riapre entro il periodo di grazia, che copre i ricaricamenti)
+// il server si ferma. Si disattiva con KEEP_RUNNING=1.
+const SHUTDOWN_GRACE_MS = 3000;
+const clients = new Set();
+let shutdownTimer = null;
+
+function handleEvents(req, res) {
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    Connection: 'keep-alive',
+  });
+  res.write('retry: 1000\n\n');
+  clients.add(res);
+  clearTimeout(shutdownTimer);
+  const ping = setInterval(() => res.write(': ping\n\n'), 15000);
+  req.on('close', () => {
+    clearInterval(ping);
+    clients.delete(res);
+    if (clients.size === 0 && !process.env.KEEP_RUNNING) {
+      shutdownTimer = setTimeout(() => {
+        console.log('Finestra chiusa, arresto Soundpad.');
+        process.exit(0);
+      }, SHUTDOWN_GRACE_MS);
+    }
+  });
+}
+
 const server = http.createServer((req, res) => {
   const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  if (urlPath === '/events') {
+    handleEvents(req, res);
+    return;
+  }
   const file = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
   if (!file.startsWith(ROOT)) {
     res.writeHead(403).end();

@@ -12,6 +12,8 @@ npm start
 
 Si apre da solo il browser predefinito su <http://localhost:5173> (se la porta è occupata usa la successiva). La porta si cambia con `PORT=8080 npm start`; per non aprire il browser usa `NO_OPEN=1 npm start`.
 
+Quando chiudi la scheda (o la finestra) dell'app il server si ferma da solo. Ricaricare la pagina non lo ferma, e con più schede aperte si ferma solo alla chiusura dell'ultima. Per tenerlo sempre attivo usa `KEEP_RUNNING=1 npm start`.
+
 > Il microfono funziona solo su `localhost` o HTTPS, per questo l'app va servita dal server incluso e non aperta come file.
 
 ## Uso

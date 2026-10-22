@@ -646,3 +646,7 @@ document.addEventListener('keydown', (e) => {
   all.sort((a, b) => a.createdAt - b.createdAt).forEach(addPad);
   updateEmptyState();
 })();
+
+// Collegamento al server: finché almeno una scheda è aperta il server resta
+// attivo, quando si chiude l'ultima si ferma da solo.
+new EventSource('/events');
