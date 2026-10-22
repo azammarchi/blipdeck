@@ -3,6 +3,11 @@
 </p>
 
 <p align="center">
+  <a href="https://github.com/azammarchi/blipdeck/actions/workflows/ci.yml"><img src="https://github.com/azammarchi/blipdeck/actions/workflows/ci.yml/badge.svg?branch=main" alt="CI status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
+</p>
+
+<p align="center">
   <a href="https://azammarchi.github.io/blipdeck/"><strong>▶ Try the live demo</strong></a>
 </p>
 
@@ -73,6 +78,20 @@ Sounds are stored in your browser (IndexedDB), so they're there when you come ba
 ## Troubleshooting
 
 If a keyboard shortcut doesn't respond, open the app with `?debug` at the end of the address (for example <http://localhost:5173/?debug>). A panel at the bottom shows every key press that reaches the page and what the app did with it.
+
+## Tests
+
+The end-to-end tests drive the real app with real mouse and keyboard input in **WebKit** (Safari's engine) and **Chromium**, using [Playwright](https://playwright.dev). They cover playback (including several pads at once), shortcuts, the pad menu, drag to reorder, trimming, recording, import/export, the online demo, migration from older versions and every language.
+
+```bash
+npm install
+npm run test:install
+npm test
+```
+
+`npm install` only adds the test tools: the app itself has no dependencies. The first command fetches Playwright, the second the two browsers it drives.
+
+On GitHub, [CI](.github/workflows/ci.yml) runs the tests on every push and pull request, and the online demo is published only when they pass.
 
 ## Adding a language
 
