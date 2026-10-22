@@ -52,12 +52,12 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Record a sound | **Record** button or the `R` key (press again to stop) |
 | Import audio files | **Import**, then pick one or more audio files |
 | Play | Click the pad or press its shortcut |
-| Assign a shortcut | **Key** on the pad, then press the key you want (`Backspace` removes it, `Esc` cancels) |
-| Trim | **Trim** on the pad: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
+| Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, delete |
+| Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels) |
+| Trim | **⋯ → Trim this sound**: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
 | Reorder | Hold a pad until it lifts, then drag it where you want |
-| Rename / loop / delete | **Name**, **Loop** and **✕** on the pad |
 | Stop everything | **Stop all** or `Esc` |
-| Change language | The 🌐 menu in the top bar |
+| Change language | The flag menu in the top bar |
 
 Trimming replaces the original audio (saved as WAV), so it can't be undone after saving.
 
@@ -72,7 +72,7 @@ Sounds are stored in your browser (IndexedDB), so they're there when you come ba
 
 ## Adding a language
 
-All interface text lives in [`public/i18n.js`](public/i18n.js). Copy the `en` block, give it a new language code and `name`, translate the strings, and it shows up in the language menu. Add `dir: 'rtl'` for right-to-left languages.
+All interface text lives in [`public/i18n.js`](public/i18n.js). Copy the `en` block, give it a new language code, a `name` and a small SVG `flag`, translate the strings, and it shows up in the language menu. Add `dir: 'rtl'` for right-to-left languages.
 
 ## License
 

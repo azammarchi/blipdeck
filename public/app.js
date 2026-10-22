@@ -109,11 +109,8 @@ function addPad(sound) {
   const play = el.querySelector('.play');
   play.addEventListener('click', () => suppressClick || trigger(sound.id));
   enableReorder(el, play);
-  el.querySelector('.assign').addEventListener('click', () => startAssign(sound.id));
-  el.querySelector('.trim').addEventListener('click', () => openTrim(sound.id));
-  el.querySelector('.rename').addEventListener('click', () => rename(sound.id));
-  el.querySelector('.loop').addEventListener('click', () => toggleLoop(sound.id));
-  el.querySelector('.delete').addEventListener('click', () => removePad(sound.id));
+  const more = el.querySelector('.more');
+  more.addEventListener('click', () => openPadMenu(sound.id, more));
 
   audio.addEventListener('play', () => {
     el.classList.add('playing');
@@ -142,7 +139,7 @@ function renderPad({ sound, el }) {
   el.querySelector('.name').textContent = sound.name;
   el.querySelector('.key').textContent = keyLabel(sound.key);
   el.querySelector('.duration').textContent = formatTime(sound.duration);
-  el.querySelector('.loop').classList.toggle('on', !!sound.loop);
+  el.classList.toggle('looping', !!sound.loop);
   el.classList.toggle('assigning', assigningId === sound.id);
 }
 
@@ -477,6 +474,12 @@ function setLabel(el, key) {
   el.textContent = t(key);
 }
 
+function setPreviewButton(playing) {
+  const button = $('#trimPreviewBtn');
+  setLabel(button.querySelector('span'), playing ? 'previewStop' : 'preview');
+  button.querySelector('use').setAttribute('href', playing ? '#i-stop' : '#i-play');
+}
+
 function startPreview() {
   stopPreview();
   const source = audioCtx.createBufferSource();
@@ -488,7 +491,7 @@ function startPreview() {
   source.start(0, trim.start, trim.end - trim.start);
   source.onended = () => trim.source === source && stopPreview();
   trim.source = source;
-  setLabel($('#trimPreviewBtn'), 'previewStop');
+  setPreviewButton(true);
   const playhead = $('#trimPlayhead');
   playhead.hidden = false;
   const tick = () => {
@@ -507,7 +510,7 @@ function stopPreview() {
   }
   cancelAnimationFrame(trim.raf);
   $('#trimPlayhead').hidden = true;
-  setLabel($('#trimPreviewBtn'), 'preview');
+  setPreviewButton(false);
 }
 
 // Returns {start, end} without the leading and trailing silence, or null if
@@ -768,24 +771,178 @@ function setRecordingUi(recording) {
 }
 
 // ---------------------------------------------------------------------------
-// Language
+// Popup menus (pad actions, language list). Only one is open at a time; it
+// closes on a click outside, Esc, Tab, scrolling or resizing the window.
 // ---------------------------------------------------------------------------
-const languageSelect = $('#languageSelect');
+let openPopup = null; // { menu, anchor, onClose }
+
+function popupItems(menu) {
+  return [...menu.querySelectorAll('button, li')];
+}
+
+function showPopup(menu, anchor, onClose) {
+  closePopup();
+  menu.hidden = false;
+  anchor.setAttribute('aria-expanded', 'true');
+  positionPopup(menu, anchor);
+  openPopup = { menu, anchor, onClose };
+  const items = popupItems(menu);
+  (items.find((item) => item.getAttribute('aria-selected') === 'true') || items[0])?.focus();
+}
+
+function closePopup({ restoreFocus = false } = {}) {
+  if (!openPopup) return;
+  const { menu, anchor, onClose } = openPopup;
+  openPopup = null;
+  menu.hidden = true;
+  anchor.setAttribute('aria-expanded', 'false');
+  onClose?.();
+  if (restoreFocus) anchor.focus();
+}
+
+// Opens below the anchor, aligned to its end edge. If it doesn't fit below it
+// goes above; if it fits in neither, it takes the roomier side and scrolls.
+function positionPopup(menu, anchor) {
+  menu.style.maxHeight = '';
+  const rect = anchor.getBoundingClientRect();
+  const { width, height } = menu.getBoundingClientRect();
+  const rtl = document.documentElement.dir === 'rtl';
+  const margin = 8;
+  const gap = 6;
+  const left = Math.min(Math.max(margin, rtl ? rect.left : rect.right - width), innerWidth - width - margin);
+  const below = innerHeight - rect.bottom - gap - margin;
+  const above = rect.top - gap - margin;
+  let top;
+  if (height <= below || below >= above) {
+    top = rect.bottom + gap;
+    menu.style.maxHeight = `${below}px`;
+  } else {
+    menu.style.maxHeight = `${above}px`;
+    top = rect.top - gap - Math.min(height, above);
+  }
+  menu.style.left = `${left}px`;
+  menu.style.top = `${top}px`;
+}
+
+function handlePopupKey(e) {
+  const items = popupItems(openPopup.menu);
+  const index = items.indexOf(document.activeElement);
+  const focusAt = (i) => items[(i + items.length) % items.length].focus();
+  switch (e.key) {
+    case 'Escape':
+      closePopup({ restoreFocus: true });
+      break;
+    case 'Tab':
+      closePopup();
+      return;
+    case 'ArrowDown':
+      focusAt(index + 1);
+      break;
+    case 'ArrowUp':
+      focusAt(index - 1);
+      break;
+    case 'Home':
+      focusAt(0);
+      break;
+    case 'End':
+      focusAt(items.length - 1);
+      break;
+    case 'Enter':
+    case ' ':
+      // Buttons activate by themselves; list items need a click.
+      if (items[index]?.tagName !== 'LI') return;
+      items[index].click();
+      break;
+    default:
+      return;
+  }
+  e.preventDefault();
+}
+
+document.addEventListener('pointerdown', (e) => {
+  if (!openPopup || openPopup.menu.contains(e.target) || openPopup.anchor.contains(e.target)) return;
+  closePopup();
+});
+window.addEventListener('resize', () => closePopup());
+// The menu is fixed-positioned: if the page scrolls it would drift away from
+// its anchor. Scrolling inside the menu itself (a long language list) is fine.
+window.addEventListener(
+  'scroll',
+  (e) => {
+    if (openPopup && !(e.target instanceof Node && openPopup.menu.contains(e.target))) closePopup();
+  },
+  true,
+);
+
+// --- Pad actions menu ------------------------------------------------------
+const padMenu = $('#padMenu');
+let menuSoundId = null;
+
+function openPadMenu(id, anchor) {
+  if (openPopup?.anchor === anchor) {
+    closePopup();
+    return;
+  }
+  menuSoundId = id;
+  padMenu.querySelector('[data-action="loop"]').setAttribute('aria-checked', String(!!sounds.get(id).sound.loop));
+  showPopup(padMenu, anchor, () => (menuSoundId = null));
+}
+
+const PAD_ACTIONS = { assign: startAssign, trim: openTrim, rename, loop: toggleLoop, delete: removePad };
+
+padMenu.addEventListener('click', (e) => {
+  const item = e.target.closest('[data-action]');
+  if (!item || !menuSoundId) return;
+  const id = menuSoundId;
+  closePopup();
+  PAD_ACTIONS[item.dataset.action](id);
+});
+
+// --- Language picker -------------------------------------------------------
+const languageButton = $('#languageButton');
+const languageList = $('#languageList');
+
+function flagUrl(code) {
+  return `data:image/svg+xml,${encodeURIComponent(LANGUAGES[code].flag)}`;
+}
 
 for (const [code, { name }] of Object.entries(LANGUAGES)) {
-  languageSelect.append(new Option(name, code));
+  const item = document.createElement('li');
+  item.setAttribute('role', 'option');
+  item.tabIndex = -1;
+  item.lang = code;
+  item.dataset.code = code;
+  item.innerHTML = '<img class="flag" alt=""><span></span><svg class="icon check"><use href="#i-check"/></svg>';
+  item.querySelector('img').src = flagUrl(code);
+  item.querySelector('span').textContent = name;
+  languageList.append(item);
 }
 
 function applyLanguage(code) {
-  languageSelect.value = setLanguage(code);
+  const applied = setLanguage(code);
+  languageButton.querySelector('.flag').src = flagUrl(applied);
+  languageButton.querySelector('.lang-name').textContent = LANGUAGES[applied].name;
+  for (const item of languageList.children) {
+    item.setAttribute('aria-selected', String(item.dataset.code === applied));
+  }
   translate(document);
   translate(template.content);
   for (const entry of sounds.values()) renderPad(entry);
   renderTrimHeading();
 }
 
-languageSelect.addEventListener('change', () => {
-  applyLanguage(languageSelect.value);
+languageButton.addEventListener('click', () => {
+  if (openPopup?.anchor === languageButton) closePopup();
+  else showPopup(languageList, languageButton);
+});
+
+languageList.addEventListener('click', (e) => {
+  const item = e.target.closest('li');
+  if (!item) return;
+  // Focus goes back to the button, never stays on a control that would
+  // swallow the pads' keyboard shortcuts.
+  closePopup({ restoreFocus: true });
+  applyLanguage(item.dataset.code);
   writeSetting(LANGUAGE_KEY, currentLanguage);
 });
 
@@ -814,10 +971,26 @@ $('#importInput').addEventListener('change', async (e) => {
 
 $('#exportBtn').addEventListener('click', exportBank);
 
+// Shortcuts are ignored only while typing text: other focused controls (the
+// volume slider, a button that was just clicked) must not swallow them.
+function isTextField(el) {
+  return (
+    el instanceof Element &&
+    el.matches(
+      'textarea, [contenteditable=""], [contenteditable="true"], ' +
+        'input:not([type="range"], [type="checkbox"], [type="radio"], [type="button"], [type="file"])',
+    )
+  );
+}
+
 document.addEventListener('keydown', (e) => {
+  if (openPopup) {
+    handlePopupKey(e);
+    return;
+  }
   if (e.metaKey || e.ctrlKey || e.altKey) return;
   if (trimDialog.open || importDialog.open) return;
-  if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
+  if (isTextField(e.target)) return;
 
   if (assigningId) {
     e.preventDefault();

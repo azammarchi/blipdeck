@@ -39,6 +39,10 @@ h1 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
 button, .button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
   font: inherit;
   color: var(--text);
   background: var(--accent);
@@ -50,10 +54,25 @@ button, .button {
 }
 button:hover, .button:hover { filter: brightness(1.12); }
 .secondary { background: var(--panel-hi); }
+
+.icon {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.icon .solid, .icon.solid { fill: currentColor; stroke: none; }
+/* The icon set only holds symbols: it must take no space (the hidden
+   attribute doesn't hide <svg> elements). */
+.sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 .danger { background: transparent; color: var(--muted); }
 .danger:hover { color: var(--rec); }
 
-.record { display: inline-flex; align-items: center; gap: 8px; background: var(--panel-hi); }
+.record { background: var(--panel-hi); }
 .record .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--rec); }
 .record.recording { background: var(--rec); }
 .record.recording .dot { background: #fff; border-radius: 2px; animation: pulse 1s infinite; }
@@ -69,16 +88,13 @@ main { flex: 1; padding: 24px; }
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 16px;
 }
 
 .pad {
-  display: flex;
-  flex-direction: column;
-  background: var(--panel);
+  position: relative;
   border-radius: var(--radius);
-  overflow: hidden;
 }
 
 .pad .play {
@@ -88,9 +104,11 @@ main { flex: 1; padding: 24px; }
   align-items: center;
   justify-content: center;
   gap: 4px;
-  height: 120px;
+  width: 100%;
+  height: 130px;
+  padding: 8px 12px;
   background: var(--pad-color, var(--accent));
-  border-radius: 0;
+  border-radius: var(--radius);
   overflow: hidden;
   transition: transform 0.06s;
 }
@@ -99,17 +117,56 @@ main { flex: 1; padding: 24px; }
 
 .pad .name { font-weight: 600; font-size: 16px; text-align: center; padding: 0 8px; word-break: break-word; }
 .pad .duration { font-size: 12px; opacity: 0.75; }
-.pad .key {
+.pad .badges {
   position: absolute;
   top: 8px;
   inset-inline-start: 8px;
-  min-width: 24px;
-  padding: 2px 6px;
+  display: flex;
+  gap: 4px;
+}
+.pad .key, .pad .loop-badge {
+  height: 22px;
   border-radius: 6px;
   background: rgba(0, 0, 0, 0.35);
-  font: 600 12px ui-monospace, monospace;
+}
+.pad .key {
+  min-width: 24px;
+  padding: 3px 6px;
+  font: 600 12px/16px ui-monospace, monospace;
 }
 .pad .key:empty { display: none; }
+.pad .loop-badge { width: 22px; padding: 4px; display: none; }
+.pad.looping .loop-badge { display: block; }
+
+/* Shown while waiting for the key to assign */
+.pad .assign-hint {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(15, 17, 23, 0.82);
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.pad.assigning .assign-hint { display: flex; }
+.pad.assigning .play { outline: 2px solid #f5b942; outline-offset: 2px; }
+
+.pad .more {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.25);
+  opacity: 0.85;
+}
+.pad .more:hover, .pad .more[aria-expanded="true"] { background: rgba(0, 0, 0, 0.45); opacity: 1; }
+.pad.assigning .more { display: none; }
 .pad .progress {
   position: absolute;
   left: 0;
@@ -118,21 +175,6 @@ main { flex: 1; padding: 24px; }
   width: 0;
   background: rgba(255, 255, 255, 0.85);
 }
-
-.pad .actions { display: flex; gap: 2px; padding: 6px; }
-.pad .actions button {
-  flex: 1;
-  min-width: 0;
-  padding: 6px 2px;
-  font-size: 12px;
-  background: var(--panel-hi);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.pad .actions .danger { flex: 0 0 24px; background: transparent; }
-.pad .actions .loop.on { background: var(--accent); }
-.pad.assigning .assign { background: #f5b942; color: #000; }
 
 footer {
   display: flex;
@@ -144,7 +186,7 @@ footer {
   font-size: 13px;
   border-top: 1px solid var(--panel-hi);
 }
-.repo-link { color: var(--muted); }
+.repo-link { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
 .repo-link:hover { color: var(--text); }
 
 kbd {
@@ -214,16 +256,56 @@ kbd {
 .dialog-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .dialog-buttons .spacer { flex: 1; }
 
-.language { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-.language select {
-  font: inherit;
+/* Popup menus: the pad actions and the language list */
+.menu {
+  position: fixed;
+  z-index: 20;
+  min-width: 200px;
+  max-height: calc(100vh - 24px);
+  overflow-y: auto;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  background: var(--panel);
+  border: 1px solid var(--panel-hi);
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+.menu[hidden] { display: none; }
+.menu button, .menu li {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: transparent;
   color: var(--text);
-  background: var(--panel-hi);
-  border: 0;
-  border-radius: 8px;
-  padding: 7px 8px;
+  text-align: start;
+  white-space: nowrap;
   cursor: pointer;
 }
+.menu button:hover, .menu button:focus-visible, .menu li:hover, .menu li:focus-visible {
+  background: var(--panel-hi);
+  filter: none;
+  outline: none;
+}
+.menu .icon { color: var(--muted); }
+.menu .check { margin-inline-start: auto; visibility: hidden; color: var(--accent); }
+.menu [aria-checked="true"] .check, .menu [aria-selected="true"] .check { visibility: visible; }
+.menu .danger, .menu .danger .icon { color: #ff6b7a; }
+.menu hr { margin: 6px 4px; border: 0; border-top: 1px solid var(--panel-hi); }
+
+.flag {
+  width: 22px;
+  height: 15px;
+  flex: none;
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.12);
+  object-fit: cover;
+}
+#languageButton .chevron { width: 14px; height: 14px; color: var(--muted); }
 
 /* Long-press reordering */
 .pad .play { touch-action: none; -webkit-touch-callout: none; }
