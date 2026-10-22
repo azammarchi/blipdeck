@@ -97,6 +97,15 @@ On GitHub, [CI](.github/workflows/ci.yml) runs the tests on every push and pull 
 
 All interface text lives in [`public/i18n.js`](public/i18n.js). Copy the `en` block, give it a new language code, a `name` and a small SVG `flag`, translate the strings, and it shows up in the language menu. Add `dir: 'rtl'` for right-to-left languages.
 
+## Star history
+
+<a href="https://www.star-history.com/#azammarchi/blipdeck&Date">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=azammarchi/blipdeck&type=Date&theme=dark">
+    <img alt="Star history of Blipdeck" src="https://api.star-history.com/svg?repos=azammarchi/blipdeck&type=Date" width="600">
+  </picture>
+</a>
+
 ## License
 
 [MIT](LICENSE)
