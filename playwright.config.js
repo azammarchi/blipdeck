@@ -1,5 +1,5 @@
 // End-to-end tests: the real app, served by server.js, driven with real mouse
-// and keyboard input in WebKit (Safari's engine) and Chromium.
+// and keyboard input in WebKit (Safari's engine), Firefox and Chromium.
 const { defineConfig, devices } = require('@playwright/test');
 
 const PORT = 5317;
@@ -17,6 +17,14 @@ module.exports = defineConfig({
   },
   projects: [
     { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    {
+      name: 'firefox',
+      use: {
+        ...devices['Desktop Firefox'],
+        // Let audio start without a click, like the Chromium flag below.
+        launchOptions: { firefoxUserPrefs: { 'media.autoplay.default': 0, 'media.autoplay.block-webaudio': false } },
+      },
+    },
     {
       name: 'chromium',
       use: {

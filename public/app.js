@@ -1275,8 +1275,10 @@ async function migrateLegacyData() {
   const savedVolume = readSetting(VOLUME_KEY);
   if (savedVolume !== null && Number(savedVolume) >= 0 && Number(savedVolume) <= 1) {
     masterVolume = Number(savedVolume);
-    $('#masterVolume').value = savedVolume;
   }
+  // Always set, even with nothing saved: Firefox restores the slider's last
+  // position on reload, which may not be the volume in use.
+  $('#masterVolume').value = String(masterVolume);
 
   const all = await db.all();
   all.sort(byOrder).forEach(addPad);
