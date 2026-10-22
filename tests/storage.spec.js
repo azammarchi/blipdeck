@@ -1,5 +1,5 @@
 const fs = require('fs');
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { openApp, usePads, padNames, reloadWhenSaved, pad } = require('./helpers');
 
 const keys = (page) =>
@@ -25,7 +25,11 @@ const DEMO_PADS = ['Ding', 'Kick', 'Snare', 'Hi-hat', 'Laser', 'Coin', 'Whoosh',
 // (plain http on a non-local host is not a secure context).
 async function openDemo(page, baseURL) {
   await page.route('https://demo.test/**', async (route) => {
-    const response = await route.fetch({ url: route.request().url().replace('https://demo.test', baseURL) });
+    const response = await route.fetch({
+      url: route.request().url().replace('https://demo.test', baseURL),
+      // Firefox would forward "Host: demo.test", which server.js rightly refuses.
+      headers: { ...route.request().headers(), host: new URL(baseURL).host },
+    });
     await route.fulfill({ response });
   });
   await openApp(page, 'https://demo.test/');

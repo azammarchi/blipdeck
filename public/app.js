@@ -1,12 +1,23 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Storage: sounds (audio + metadata) live in the browser's IndexedDB.
+// Storage. The local app (served by server.js) saves sounds as real files in
+// the project's sounds/ folder, through the server's small API. The online
+// demo has no server, so there they live in the browser's IndexedDB. Both
+// stores have the same interface: all(), put(sound), remove(id), firstRun().
 // ---------------------------------------------------------------------------
+
+// Served by server.js on this machine, or as the online demo (GitHub Pages)?
+const IS_LOCAL_SERVER = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+
 const DB_NAME = 'blipdeck';
 const STORE = 'sounds';
 // Before the rename to Blipdeck, data was saved under "soundpad" names.
 const LEGACY_PREFIX = 'soundpad';
+const SEEDED_KEY = 'blipdeck.seeded';
+
+// --- Browser storage (IndexedDB) -------------------------------------------
+let dbPromise = null; // opened on first use: the local app may never need it
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -17,9 +28,8 @@ function openDb() {
   });
 }
 
-const dbPromise = openDb();
-
 async function dbOp(mode, fn) {
+  dbPromise ||= openDb();
   const db = await dbPromise;
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, mode);
@@ -31,19 +41,24 @@ async function dbOp(mode, fn) {
   });
 }
 
-// In memory a sound keeps its audio as a Blob; in the database it is stored as
-// raw bytes. Some browsers can't store Blobs (Safari private windows, for
-// one), while an ArrayBuffer is accepted everywhere. Records saved as Blobs by
+// In memory a sound keeps its audio as a Blob (and, once trimmed, its
+// untrimmed audio as `original`); in the database both are stored as raw
+// bytes. Some browsers can't store Blobs (Safari private windows, for one),
+// while an ArrayBuffer is accepted everywhere. Records saved as Blobs by
 // earlier versions are still read.
-async function toRecord({ blob, ...sound }) {
-  return { ...sound, audio: await blob.arrayBuffer(), mimeType: blob.type };
+async function toRecord({ blob, original, ...sound }) {
+  const record = { ...sound, audio: await blob.arrayBuffer(), mimeType: blob.type };
+  if (original) Object.assign(record, { originalAudio: await original.arrayBuffer(), originalType: original.type });
+  return record;
 }
 
-function fromRecord({ audio, mimeType, ...record }) {
-  return audio ? { ...record, blob: new Blob([audio], { type: mimeType }) } : record;
+function fromRecord({ audio, mimeType, originalAudio, originalType, ...record }) {
+  const sound = audio ? { ...record, blob: new Blob([audio], { type: mimeType }) } : record;
+  if (originalAudio) sound.original = new Blob([originalAudio], { type: originalType });
+  return sound;
 }
 
-const db = {
+const browserStore = {
   all: async () => (await dbOp('readonly', (s) => s.getAll())).map(fromRecord),
   // The bytes are read before the transaction opens: it would close itself
   // while waiting for them.
@@ -52,7 +67,76 @@ const db = {
     return dbOp('readwrite', (s) => s.put(record));
   },
   remove: (id) => dbOp('readwrite', (s) => s.delete(id)),
+  firstRun: () => {
+    const first = readSetting(SEEDED_KEY) === null;
+    writeSetting(SEEDED_KEY, '1');
+    return first;
+  },
 };
+
+// --- File storage (local server) -------------------------------------------
+async function api(method, path, body, type) {
+  const response = await fetch(`/api/${path}`, {
+    method,
+    body,
+    headers: type ? { 'Content-Type': type } : undefined,
+    cache: 'no-store',
+  });
+  if (!response.ok) throw new Error(`${method} /api/${path} failed: ${response.status}`);
+  return response;
+}
+
+// Audio is only uploaded when it changed: renaming, reordering or looping a
+// pad just saves its details.
+const savedAudio = new WeakSet();
+const savedOriginals = new Map(); // id -> the untrimmed audio the server has
+let boardWasNew = false;
+
+const DETAIL_FIELDS = ['name', 'duration', 'color', 'code', 'key', 'loop', 'order', 'createdAt'];
+
+const fileStore = {
+  all: async () => {
+    const board = await (await api('GET', 'board')).json();
+    boardWasNew = board.firstRun;
+    return Promise.all(
+      board.sounds.map(async (meta) => {
+        const sound = Object.fromEntries(DETAIL_FIELDS.filter((f) => f in meta).map((f) => [f, meta[f]]));
+        sound.id = meta.id;
+        sound.blob = await (await api('GET', `sounds/${meta.id}/audio`)).blob();
+        savedAudio.add(sound.blob);
+        if (meta.originalFile) {
+          sound.original = await (await api('GET', `sounds/${meta.id}/audio?original`)).blob();
+          savedOriginals.set(meta.id, sound.original);
+        }
+        return sound;
+      }),
+    );
+  },
+  put: async (sound) => {
+    const details = Object.fromEntries(DETAIL_FIELDS.filter((f) => f in sound).map((f) => [f, sound[f]]));
+    await api('PUT', `sounds/${sound.id}`, JSON.stringify(details), 'application/json');
+    if (!savedAudio.has(sound.blob)) {
+      await api('PUT', `sounds/${sound.id}/audio`, sound.blob, sound.blob.type || 'application/octet-stream');
+      savedAudio.add(sound.blob);
+    }
+    if (sound.original && savedOriginals.get(sound.id) !== sound.original) {
+      await api('PUT', `sounds/${sound.id}/audio?original`, sound.original, sound.original.type || 'application/octet-stream');
+      savedOriginals.set(sound.id, sound.original);
+    } else if (!sound.original && savedOriginals.has(sound.id)) {
+      await api('DELETE', `sounds/${sound.id}/audio?original`);
+      savedOriginals.delete(sound.id);
+    }
+  },
+  remove: async (id) => {
+    await api('DELETE', `sounds/${id}`);
+    savedOriginals.delete(id);
+  },
+  // A brand-new sounds/ folder, unless this browser already saw a first run
+  // (someone who deleted the sample pad before files existed).
+  firstRun: () => boardWasNew && readSetting(SEEDED_KEY) === null,
+};
+
+const db = IS_LOCAL_SERVER ? fileStore : browserStore;
 
 // ---------------------------------------------------------------------------
 // State
@@ -61,10 +145,6 @@ const COLORS = ['#6c8cff', '#ff7a59', '#2ec4a6', '#c86cff', '#f5b942', '#ff5c8a'
 const RESERVED_CODES = new Set(['KeyR', 'Escape']);
 const VOLUME_KEY = 'blipdeck.volume';
 const LANGUAGE_KEY = 'blipdeck.language';
-const SEEDED_KEY = 'blipdeck.seeded';
-
-// Served by server.js on this machine, or as the online demo (GitHub Pages)?
-const IS_LOCAL_SERVER = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
 const sounds = new Map(); // id -> { sound, el, buffer, bufferPromise, voice }
 let assigningId = null;
@@ -1225,8 +1305,15 @@ async function seedSamples(names) {
   }
 }
 
-// Moves sounds and settings saved under the old "soundpad" names, once, so
-// nothing is lost after the rename.
+async function databaseExists(name) {
+  // indexedDB.open() would create a database that doesn't exist, so check
+  // first. Without databases() (old browsers) we can't tell: assume no.
+  if (!indexedDB.databases) return false;
+  return (await indexedDB.databases()).some((d) => d.name === name);
+}
+
+// Moves sounds and settings saved under the old "soundpad" names into the
+// current browser storage, once, so nothing is lost after the rename.
 async function migrateLegacyData() {
   for (const key of [VOLUME_KEY, LANGUAGE_KEY, SEEDED_KEY]) {
     const legacyKey = key.replace('blipdeck', LEGACY_PREFIX);
@@ -1238,11 +1325,7 @@ async function migrateLegacyData() {
     } catch {}
   }
 
-  // indexedDB.open() would create the old database if it didn't exist, so
-  // check that it is really there first.
-  if (!indexedDB.databases) return;
-  const existing = await indexedDB.databases();
-  if (!existing.some((d) => d.name === LEGACY_PREFIX)) return;
+  if (!(await databaseExists(LEGACY_PREFIX))) return;
   const legacy = await new Promise((resolve, reject) => {
     const req = indexedDB.open(LEGACY_PREFIX);
     req.onsuccess = () => resolve(req.result);
@@ -1254,10 +1337,25 @@ async function migrateLegacyData() {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    for (const record of old) await db.put(fromRecord(record));
+    for (const record of old) await browserStore.put(fromRecord(record));
   }
   legacy.close();
   indexedDB.deleteDatabase(LEGACY_PREFIX);
+}
+
+// Local app: sounds saved in the browser by earlier versions move into the
+// sounds/ folder. The browser copy is only deleted once every file is saved.
+async function moveBrowserSoundsToFiles() {
+  if (!IS_LOCAL_SERVER || !(await databaseExists(DB_NAME))) return;
+  const stored = await browserStore.all();
+  const onDisk = new Set((await fileStore.all()).map((sound) => sound.id));
+  for (const sound of stored) if (!onDisk.has(sound.id)) await fileStore.put(sound);
+  const saved = new Set((await fileStore.all()).map((sound) => sound.id));
+  if (stored.every((sound) => saved.has(sound.id))) {
+    (await dbPromise)?.close();
+    dbPromise = null;
+    indexedDB.deleteDatabase(DB_NAME);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1266,8 +1364,9 @@ async function migrateLegacyData() {
 (async () => {
   try {
     await migrateLegacyData();
+    await moveBrowserSoundsToFiles();
   } catch (err) {
-    console.warn('Could not migrate data from the old version', err);
+    console.warn('Could not move sounds saved by an earlier version', err);
   }
 
   applyLanguage(readSetting(LANGUAGE_KEY) || DEFAULT_LANGUAGE);
@@ -1280,13 +1379,18 @@ async function migrateLegacyData() {
   // position on reload, which may not be the volume in use.
   $('#masterVolume').value = String(masterVolume);
 
-  const all = await db.all();
+  let all = [];
+  try {
+    all = await db.all();
+  } catch (err) {
+    console.error('Could not load the sounds', err);
+    alert(t('loadError', { error: err?.message || err }));
+  }
   all.sort(byOrder).forEach(addPad);
 
-  if (readSetting(SEEDED_KEY) === null) {
-    writeSetting(SEEDED_KEY, '1');
-    if (!all.length) await seedSamples(IS_LOCAL_SERVER ? ['Ding'] : Object.keys(SAMPLES));
-  }
+  const firstRun = db.firstRun();
+  writeSetting(SEEDED_KEY, '1');
+  if (firstRun && !all.length) await seedSamples(IS_LOCAL_SERVER ? ['Ding'] : Object.keys(SAMPLES));
   updateEmptyState();
   // Startup is over (pads loaded or seeded): the test suite waits for this.
   document.documentElement.dataset.ready = 'true';

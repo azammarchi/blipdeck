@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { openApp, usePads, playing } = require('./helpers');
 
 test('every language has every string and a flag', async ({ page }) => {

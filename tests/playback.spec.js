@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./fixtures');
 const { openApp, usePads, addTonePad, playing, pad, focusPage } = require('./helpers');
 
 test.beforeEach(async ({ page }) => {

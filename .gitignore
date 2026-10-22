@@ -19,3 +19,6 @@ soundpad-*.json
 # Playwright output
 test-results/
 playwright-report/
+
+# Your sounds, saved by the local app (never committed)
+sounds/
