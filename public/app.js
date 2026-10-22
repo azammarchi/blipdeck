@@ -49,7 +49,7 @@ const SEEDED_KEY = 'blipdeck.seeded';
 // Served by server.js on this machine, or as the online demo (GitHub Pages)?
 const IS_LOCAL_SERVER = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
-const sounds = new Map(); // id -> { sound, audio, url, el }
+const sounds = new Map(); // id -> { sound, el, buffer, bufferPromise, voice }
 let assigningId = null;
 let masterVolume = 1;
 
@@ -101,17 +101,60 @@ function writeSetting(key, value) {
 }
 
 // ---------------------------------------------------------------------------
+// Playback: each sound is decoded into memory once and played through a single
+// Web Audio graph that the browser mixes into one output stream. (One <audio>
+// element per pad opens a stream per sound, and starting one could make the
+// others stutter for a moment, especially in Safari.)
+// ---------------------------------------------------------------------------
+const STOP_FADE = 0.008; // seconds; a tiny fade-out avoids a click when cutting a sound
+
+let audioCtx = null;
+let masterGain = null;
+
+function getAudioContext() {
+  if (!audioCtx) {
+    audioCtx = new AudioContext({ latencyHint: 'interactive' });
+    masterGain = audioCtx.createGain();
+    masterGain.gain.value = masterVolume;
+    masterGain.connect(audioCtx.destination);
+  }
+  return audioCtx;
+}
+
+// Decodes a pad's audio once. The promise is kept so that a pad pressed while
+// it is still decoding plays as soon as it's ready.
+function loadBuffer(entry) {
+  entry.bufferPromise ||= entry.sound.blob
+    .arrayBuffer()
+    .then((data) => getAudioContext().decodeAudioData(data))
+    .then((buffer) => {
+      entry.buffer = buffer;
+      if (!entry.sound.duration) {
+        entry.sound.duration = buffer.duration;
+        renderPad(entry);
+      }
+      return buffer;
+    })
+    .catch((err) => {
+      entry.bufferPromise = null;
+      throw err;
+    });
+  return entry.bufferPromise;
+}
+
+function forgetBuffer(entry) {
+  stopVoice(entry);
+  entry.buffer = null;
+  entry.bufferPromise = null;
+}
+
+// ---------------------------------------------------------------------------
 // Pads
 // ---------------------------------------------------------------------------
 function addPad(sound) {
-  const url = URL.createObjectURL(sound.blob);
-  const audio = new Audio(url);
-  audio.loop = !!sound.loop;
-  audio.volume = masterVolume;
-
   const el = template.content.firstElementChild.cloneNode(true);
   el.style.setProperty('--pad-color', sound.color);
-  const entry = { sound, audio, url, el };
+  const entry = { sound, el, buffer: null, bufferPromise: null, voice: null };
   sounds.set(sound.id, entry);
 
   const play = el.querySelector('.play');
@@ -120,27 +163,11 @@ function addPad(sound) {
   const more = el.querySelector('.more');
   more.addEventListener('click', () => openPadMenu(sound.id, more));
 
-  audio.addEventListener('play', () => {
-    el.classList.add('playing');
-    requestAnimationFrame(() => tickProgress(entry));
-  });
-  audio.addEventListener('pause', () => el.classList.remove('playing'));
-  audio.addEventListener('ended', () => {
-    el.classList.remove('playing');
-    el.querySelector('.progress').style.width = '0';
-  });
-  audio.addEventListener('loadedmetadata', () => {
-    // WebM files recorded by Chrome report an Infinity duration: in that case
-    // we keep the one measured while recording.
-    if (Number.isFinite(audio.duration) && !sound.duration) {
-      sound.duration = audio.duration;
-      renderPad(entry);
-    }
-  });
-
   grid.appendChild(el);
   renderPad(entry);
   updateEmptyState();
+  // Decode in the background so the first press plays right away.
+  loadBuffer(entry).catch((err) => console.warn(`Couldn't decode "${sound.name}"`, err));
 }
 
 function renderPad({ sound, el }) {
@@ -151,34 +178,69 @@ function renderPad({ sound, el }) {
   el.classList.toggle('assigning', assigningId === sound.id);
 }
 
-function tickProgress(entry) {
-  const { audio, sound, el } = entry;
-  if (audio.paused) return;
-  const duration = Number.isFinite(audio.duration) ? audio.duration : sound.duration;
-  const ratio = duration ? (audio.currentTime % duration) / duration : 0;
-  el.querySelector('.progress').style.width = `${Math.min(1, ratio) * 100}%`;
-  requestAnimationFrame(() => tickProgress(entry));
+function renderPlaying(entry) {
+  entry.el.classList.toggle('playing', !!entry.voice);
+  if (entry.voice) requestAnimationFrame(() => tickProgress(entry, entry.voice));
+  else entry.el.querySelector('.progress').style.width = '0';
+}
+
+function tickProgress(entry, voice) {
+  if (entry.voice !== voice) return;
+  const { duration } = voice.source.buffer;
+  const elapsed = audioCtx.currentTime - voice.startedAt;
+  const ratio = voice.source.loop ? (elapsed % duration) / duration : Math.min(1, elapsed / duration);
+  entry.el.querySelector('.progress').style.width = `${ratio * 100}%`;
+  requestAnimationFrame(() => tickProgress(entry, voice));
 }
 
 // Pressing a pad restarts it from the beginning; if it is looping and
-// currently playing, pressing it stops it.
-function trigger(id) {
-  const { audio, sound } = sounds.get(id);
-  if (sound.loop && !audio.paused) {
-    audio.pause();
-    audio.currentTime = 0;
+// currently playing, pressing it stops it. Other pads are never affected.
+async function trigger(id) {
+  const entry = sounds.get(id);
+  const ctx = getAudioContext();
+  // Browsers only let audio start from a click or key press: this is one.
+  if (ctx.state !== 'running') ctx.resume();
+  if (entry.sound.loop && entry.voice) {
+    stopVoice(entry);
     return;
   }
-  audio.currentTime = 0;
-  audio.play().catch((err) => console.error('Playback failed', err));
+  let buffer;
+  try {
+    buffer = entry.buffer || (await loadBuffer(entry));
+  } catch (err) {
+    alert(t('audioReadError', { error: err?.message || err }));
+    return;
+  }
+  if (!sounds.has(id)) return; // deleted while decoding
+  stopVoice(entry);
+  const source = ctx.createBufferSource();
+  const gain = ctx.createGain();
+  source.buffer = buffer;
+  source.loop = !!entry.sound.loop;
+  source.connect(gain).connect(masterGain);
+  const voice = { source, gain, startedAt: ctx.currentTime };
+  source.onended = () => {
+    if (entry.voice !== voice) return;
+    entry.voice = null;
+    renderPlaying(entry);
+  };
+  source.start();
+  entry.voice = voice;
+  renderPlaying(entry);
+}
+
+function stopVoice(entry) {
+  const { voice } = entry;
+  if (!voice) return;
+  entry.voice = null;
+  const now = audioCtx.currentTime;
+  voice.gain.gain.setTargetAtTime(0, now, STOP_FADE / 3);
+  voice.source.stop(now + STOP_FADE * 2);
+  renderPlaying(entry);
 }
 
 function stopAll() {
-  for (const { audio, el } of sounds.values()) {
-    audio.pause();
-    audio.currentTime = 0;
-    el.querySelector('.progress').style.width = '0';
-  }
+  for (const entry of sounds.values()) stopVoice(entry);
 }
 
 async function rename(id) {
@@ -193,7 +255,8 @@ async function rename(id) {
 async function toggleLoop(id) {
   const entry = sounds.get(id);
   entry.sound.loop = !entry.sound.loop;
-  entry.audio.loop = entry.sound.loop;
+  // A playing sound picks up the change: turning loop off lets it finish.
+  if (entry.voice) entry.voice.source.loop = entry.sound.loop;
   await db.put(entry.sound);
   renderPad(entry);
 }
@@ -201,8 +264,7 @@ async function toggleLoop(id) {
 async function removePad(id) {
   const entry = sounds.get(id);
   if (!confirm(t('deleteConfirm', { name: entry.sound.name }))) return;
-  entry.audio.pause();
-  URL.revokeObjectURL(entry.url);
+  forgetBuffer(entry);
   entry.el.remove();
   sounds.delete(id);
   if (assigningId === id) assigningId = null;
@@ -399,16 +461,14 @@ const FADE = 0.005; // fade at the cut edges, avoids audible clicks
 const trimDialog = $('#trimDialog');
 const wave = $('.wave-wrap');
 const trim = { entry: null, buffer: null, start: 0, end: 0, source: null, raf: 0 };
-let audioCtx = null;
 let dragging = null;
 
 async function openTrim(id) {
   const entry = sounds.get(id);
-  entry.audio.pause();
-  audioCtx ||= new AudioContext();
+  stopVoice(entry);
   let buffer;
   try {
-    buffer = await audioCtx.decodeAudioData(await entry.sound.blob.arrayBuffer());
+    buffer = entry.buffer || (await loadBuffer(entry));
   } catch (err) {
     alert(t('audioReadError', { error: err.message }));
     return;
@@ -501,12 +561,12 @@ function setPreviewButton(playing) {
 
 function startPreview() {
   stopPreview();
-  const source = audioCtx.createBufferSource();
-  const gain = audioCtx.createGain();
-  gain.gain.value = masterVolume;
+  const ctx = getAudioContext();
+  if (ctx.state !== 'running') ctx.resume();
+  const source = ctx.createBufferSource();
   source.buffer = trim.buffer;
-  source.connect(gain).connect(audioCtx.destination);
-  const startedAt = audioCtx.currentTime;
+  source.connect(masterGain);
+  const startedAt = ctx.currentTime;
   source.start(0, trim.start, trim.end - trim.start);
   source.onended = () => trim.source === source && stopPreview();
   trim.source = source;
@@ -570,8 +630,7 @@ function autoTrim() {
 // decoded or there is nothing to remove, the recording is kept as it is.
 async function trimRecording(blob, duration) {
   try {
-    audioCtx ||= new AudioContext();
-    const buffer = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+    const buffer = await getAudioContext().decodeAudioData(await blob.arrayBuffer());
     const bounds = silenceBounds(buffer);
     if (!bounds || bounds.end - bounds.start > buffer.duration - 0.02) return { blob, duration };
     return { blob: encodeWav(buffer, bounds.start, bounds.end), duration: bounds.end - bounds.start };
@@ -622,13 +681,11 @@ async function saveTrim() {
   stopPreview();
   entry.sound.blob = encodeWav(buffer, start, end);
   entry.sound.duration = end - start;
-  await db.put(entry.sound);
-  URL.revokeObjectURL(entry.url);
-  entry.url = URL.createObjectURL(entry.sound.blob);
-  entry.audio.src = entry.url;
-  entry.el.querySelector('.progress').style.width = '0';
+  forgetBuffer(entry);
+  loadBuffer(entry).catch((err) => console.warn('Could not decode the trimmed sound', err));
   renderPad(entry);
   trimDialog.close();
+  await save(entry.sound);
 }
 
 $('#trimPreviewBtn').addEventListener('click', () => (trim.source ? stopPreview() : startPreview()));
@@ -708,7 +765,7 @@ async function importBank(file) {
   if (mode === 'replace') {
     stopAll();
     for (const [id, entry] of sounds) {
-      URL.revokeObjectURL(entry.url);
+      forgetBuffer(entry);
       entry.el.remove();
       await db.remove(id);
     }
@@ -974,7 +1031,7 @@ $('#stopAllBtn').addEventListener('click', stopAll);
 
 $('#masterVolume').addEventListener('input', (e) => {
   masterVolume = Number(e.target.value);
-  for (const { audio } of sounds.values()) audio.volume = masterVolume;
+  masterGain?.gain.setTargetAtTime(masterVolume, audioCtx.currentTime, 0.01);
   writeSetting(VOLUME_KEY, String(masterVolume));
 });
 
