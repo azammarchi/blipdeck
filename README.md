@@ -14,7 +14,7 @@
 - ✂️ **Trim** any sound on its waveform, with preview and one-click silence removal
 - ⌨️ **Keyboard shortcuts**: bind any key to any pad
 - 🔁 **Loop** and **rename** any pad
-- ↕️ **Reorder** pads by holding one down and dragging it
+- ↕️ **Reorder** pads by dragging them
 - 💾 **Export / import** your whole board (sounds, names, keys) as a single file
 - 🌐 **12 languages**: English, Italiano, Español, Français, Deutsch, Português, Русский, 中文, 日本語, 한국어, हिन्दी, العربية
 - 📦 **Zero dependencies**: plain HTML, CSS and JavaScript
@@ -55,7 +55,7 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, delete |
 | Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels). Digits on the top row and on the numeric keypad count as the same key |
 | Trim | **⋯ → Trim this sound**: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
-| Reorder | Hold a pad until it lifts, then drag it where you want |
+| Reorder | Drag a pad where you want (a click without moving plays it) |
 | Stop everything | **Stop all** or `Esc` |
 | Change language | The flag menu in the top bar |
 

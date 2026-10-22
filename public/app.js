@@ -345,11 +345,10 @@ async function createSound(blob, name, duration) {
 }
 
 // ---------------------------------------------------------------------------
-// Reordering: holding a pad down "lifts" it so it can be dragged to another
-// position. A normal click still plays the sound.
+// Reordering: press a pad and move the pointer to drag it to another
+// position. A click without moving still plays the sound.
 // ---------------------------------------------------------------------------
-const LONG_PRESS_MS = 350;
-const MOVE_TOLERANCE = 8; // px: moving more than this first means it's not a long press
+const DRAG_THRESHOLD = 6; // px the pointer must move before a press becomes a drag
 let suppressClick = false;
 
 // Moves and release are listened for on the window, not on the pad: moving the
@@ -361,27 +360,17 @@ function enableReorder(el, handle) {
     const pointerId = e.pointerId;
     const startX = e.clientX;
     const startY = e.clientY;
-    let lastX = startX;
-    let lastY = startY;
     let drag = null;
-    let timer = setTimeout(() => {
-      timer = null;
-      drag = startDrag(el, lastX, lastY);
-    }, LONG_PRESS_MS);
 
     const onMove = (ev) => {
       if (ev.pointerId !== pointerId) return;
-      lastX = ev.clientX;
-      lastY = ev.clientY;
-      if (timer && Math.hypot(lastX - startX, lastY - startY) > MOVE_TOLERANCE) {
-        // It moved before the long press kicked in: treat it as a normal click.
-        stop();
-        return;
+      if (!drag) {
+        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        // Grab the pad where the press started, so it doesn't jump under the pointer.
+        drag = startDrag(el, startX, startY);
       }
-      if (drag) {
-        ev.preventDefault();
-        moveDrag(drag, lastX, lastY);
-      }
+      ev.preventDefault();
+      moveDrag(drag, ev.clientX, ev.clientY);
     };
 
     const onEnd = (ev) => {
@@ -395,8 +384,6 @@ function enableReorder(el, handle) {
     };
 
     const stop = () => {
-      clearTimeout(timer);
-      timer = null;
       if (drag) finishDrag(drag);
       drag = null;
       window.removeEventListener('pointermove', onMove);
