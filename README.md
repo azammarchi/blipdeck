@@ -22,7 +22,7 @@ Al primo avvio trovi un pad di esempio, **Ding**, sul tasto `1`: è generato dal
 
 | Azione | Come |
 | --- | --- |
-| Registrare un suono | pulsante **Registra** o tasto `R` (di nuovo per fermare) |
+| Registrare un suono | pulsante **Registra** o tasto `R` (di nuovo per fermare); i silenzi all'inizio e alla fine vengono tolti in automatico |
 | Importare un file audio | **Importa** e scegli uno o più file audio |
 | Ritagliare un suono | **Taglia** sul pad: trascina le maniglie gialle, **Anteprima** per ascoltare, **Togli silenzi** per tagliare in automatico i silenzi all'inizio e alla fine, poi **Salva** |
 | Riprodurre | clic sul pad o la sua scorciatoia |

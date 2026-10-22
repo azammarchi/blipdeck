@@ -459,24 +459,52 @@ function stopPreview() {
 }
 
 // Toglie il silenzio iniziale e finale: soglia relativa al picco del suono.
-function autoTrim() {
-  const { buffer } = trim;
+// Restituisce {start, end} senza il silenzio iniziale e finale, oppure null
+// se il suono è praticamente muto (in quel caso non c'è niente da tagliare).
+function silenceBounds(buffer) {
   const channels = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
-  const level = (i) => Math.max(...channels.map((ch) => Math.abs(ch[i])));
+  const level = (i) => {
+    let max = 0;
+    for (const ch of channels) max = Math.max(max, Math.abs(ch[i]));
+    return max;
+  };
   let peak = 0;
   for (let i = 0; i < buffer.length; i++) peak = Math.max(peak, level(i));
-  if (!peak) return;
+  if (peak < 0.01) return null;
   const threshold = peak * 0.08;
   let first = 0;
   while (first < buffer.length && level(first) < threshold) first++;
   let last = buffer.length - 1;
   while (last > first && level(last) < threshold) last--;
   const pad = 0.05;
+  const start = Math.max(0, first / buffer.sampleRate - pad);
+  let end = Math.min(buffer.duration, last / buffer.sampleRate + pad);
+  if (end - start < MIN_TRIM) end = Math.min(buffer.duration, start + MIN_TRIM);
+  return { start, end };
+}
+
+function autoTrim() {
+  const bounds = silenceBounds(trim.buffer);
+  if (!bounds) return;
   stopPreview();
-  trim.start = Math.max(0, first / buffer.sampleRate - pad);
-  trim.end = Math.min(buffer.duration, last / buffer.sampleRate + pad);
-  if (trim.end - trim.start < MIN_TRIM) trim.end = Math.min(buffer.duration, trim.start + MIN_TRIM);
+  trim.start = bounds.start;
+  trim.end = bounds.end;
   renderTrim();
+}
+
+// Dopo una registrazione: toglie i silenzi ai bordi. Se l'audio non si riesce
+// a decodificare o non c'è niente da togliere, tiene la registrazione com'è.
+async function trimRecording(blob, duration) {
+  try {
+    audioCtx ||= new AudioContext();
+    const buffer = await audioCtx.decodeAudioData(await blob.arrayBuffer());
+    const bounds = silenceBounds(buffer);
+    if (!bounds || bounds.end - bounds.start > buffer.duration - 0.02) return { blob, duration };
+    return { blob: encodeWav(buffer, bounds.start, bounds.end), duration: bounds.end - bounds.start };
+  } catch (err) {
+    console.warn('Ritaglio automatico non riuscito', err);
+    return { blob, duration };
+  }
 }
 
 function encodeWav(buffer, start, end) {
@@ -653,7 +681,9 @@ async function toggleRecording() {
     setRecordingUi(false);
     const blob = new Blob(chunks, { type: recorder.mimeType });
     recorder = null;
-    if (blob.size) await createSound(blob, `Suono ${sounds.size + 1}`, duration);
+    if (!blob.size) return;
+    const trimmed = await trimRecording(blob, duration);
+    await createSound(trimmed.blob, `Suono ${sounds.size + 1}`, trimmed.duration);
   };
   recorder.start();
   recordStart = performance.now();
