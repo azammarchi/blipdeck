@@ -200,3 +200,5 @@ kbd {
   transform: scale(1.05) rotate(-1.5deg);
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
+body.reordering { cursor: grabbing; user-select: none; }
+body.reordering * { cursor: grabbing !important; }

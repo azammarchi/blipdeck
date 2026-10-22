@@ -248,47 +248,64 @@ const LONG_PRESS_MS = 350;
 const MOVE_TOLERANCE = 8; // px: se ci si muove prima, non è una pressione lunga
 let suppressClick = false;
 
+// Movimenti e rilascio si ascoltano sulla finestra e non sul pad: spostare il
+// pad nella griglia lo stacca e riattacca al DOM, e questo farebbe perdere la
+// cattura del puntatore bloccando il trascinamento a metà.
 function enableReorder(el, handle) {
-  let timer = null;
-  let drag = null;
-  let startX = 0;
-  let startY = 0;
-  let lastX = 0;
-  let lastY = 0;
-
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
-    startX = lastX = e.clientX;
-    startY = lastY = e.clientY;
-    handle.setPointerCapture(e.pointerId);
-    timer = setTimeout(() => {
+    const pointerId = e.pointerId;
+    const startX = e.clientX;
+    const startY = e.clientY;
+    let lastX = startX;
+    let lastY = startY;
+    let drag = null;
+    let timer = setTimeout(() => {
       timer = null;
       drag = startDrag(el, lastX, lastY);
     }, LONG_PRESS_MS);
-  });
 
-  handle.addEventListener('pointermove', (e) => {
-    lastX = e.clientX;
-    lastY = e.clientY;
-    if (timer && Math.hypot(lastX - startX, lastY - startY) > MOVE_TOLERANCE) {
+    const onMove = (ev) => {
+      if (ev.pointerId !== pointerId) return;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
+      if (timer && Math.hypot(lastX - startX, lastY - startY) > MOVE_TOLERANCE) {
+        // Si è mosso prima della pressione lunga: è un clic normale.
+        stop();
+        return;
+      }
+      if (drag) {
+        ev.preventDefault();
+        moveDrag(drag, lastX, lastY);
+      }
+    };
+
+    const onEnd = (ev) => {
+      if (ev.pointerId !== undefined && ev.pointerId !== pointerId) return;
+      const wasDragging = !!drag;
+      stop();
+      if (!wasDragging) return;
+      // Il click che segue il rilascio non deve far partire il suono.
+      suppressClick = true;
+      setTimeout(() => (suppressClick = false), 0);
+    };
+
+    const stop = () => {
       clearTimeout(timer);
       timer = null;
-    }
-    if (drag) moveDrag(drag, lastX, lastY);
-  });
+      if (drag) finishDrag(drag);
+      drag = null;
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onEnd);
+      window.removeEventListener('pointercancel', onEnd);
+      window.removeEventListener('blur', onEnd);
+    };
 
-  const end = () => {
-    clearTimeout(timer);
-    timer = null;
-    if (!drag) return;
-    finishDrag(drag);
-    drag = null;
-    // Il click che segue il rilascio non deve far partire il suono.
-    suppressClick = true;
-    setTimeout(() => (suppressClick = false), 0);
-  };
-  handle.addEventListener('pointerup', end);
-  handle.addEventListener('pointercancel', end);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onEnd);
+    window.addEventListener('pointercancel', onEnd);
+    window.addEventListener('blur', onEnd);
+  });
   handle.addEventListener('contextmenu', (e) => e.preventDefault());
 }
 
@@ -303,6 +320,7 @@ function startDrag(el, x, y) {
     top: `${rect.top}px`,
   });
   document.body.appendChild(ghost);
+  document.body.classList.add('reordering');
   el.classList.add('drag-placeholder');
   return { el, ghost, dx: x - rect.left, dy: y - rect.top };
 }
@@ -319,6 +337,7 @@ function moveDrag(drag, x, y) {
 
 async function finishDrag(drag) {
   drag.ghost.remove();
+  document.body.classList.remove('reordering');
   drag.el.classList.remove('drag-placeholder');
   const byEl = new Map([...sounds.values()].map((entry) => [entry.el, entry]));
   const pads = [...grid.children];
