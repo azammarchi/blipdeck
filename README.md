@@ -18,6 +18,8 @@ Quando chiudi la scheda (o la finestra) dell'app il server si ferma da solo. Ric
 
 ## Uso
 
+Al primo avvio trovi un pad di esempio, **Ding**, sul tasto `1`: è generato dal codice (nessun file audio nel repo) e puoi eliminarlo; una volta eliminato non ricompare.
+
 | Azione | Come |
 | --- | --- |
 | Registrare un suono | pulsante **Registra** o tasto `R` (di nuovo per fermare) |
@@ -35,5 +37,7 @@ Il ritaglio sostituisce l'audio originale (salvato come WAV), quindi non si può
 
 - **Esporta** scarica un file `soundpad-AAAA-MM-GG.json` con tutti i suoni, i nomi, i tasti assegnati, i colori e il loop.
 - **Importa** con quel file `.json` li ricarica. Se hai già dei suoni ti chiede se **sostituirli** (OK) o **aggiungere** quelli importati (Annulla); in aggiunta, un tasto già usato resta al suono esistente e quello importato rimane senza scorciatoia.
+
+I tuoi suoni non finiscono mai nel repo: vivono nel browser. Per sicurezza `.gitignore` esclude anche i file `soundpad-*.json` esportati e i file audio salvati nella cartella del progetto.
 
 I suoni restano salvati nel browser (IndexedDB), quindi li ritrovi alla riapertura, ma sono legati a quel browser su quel PC.

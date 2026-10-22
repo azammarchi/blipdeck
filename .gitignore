@@ -1,2 +1,13 @@
 node_modules/
 .DS_Store
+
+# I suoni dell'utente vivono nel browser (IndexedDB), mai nel repo.
+# Escludiamo anche eventuali export o file audio salvati nella cartella.
+soundpad-*.json
+*.wav
+*.mp3
+*.m4a
+*.ogg
+*.webm
+*.flac
+*.aac

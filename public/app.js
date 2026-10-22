@@ -730,6 +730,54 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------------------------------------------------------------------------
+// Pad di esempio: al primissimo avvio creiamo un "ding" sintetizzato (nessun
+// file audio nel repo) legato al tasto 1. L'utente può eliminarlo e non torna.
+// ---------------------------------------------------------------------------
+const SEEDED_KEY = 'soundpad.seeded';
+
+async function synthesizeDing() {
+  const rate = 44100;
+  const length = 1.4;
+  const ctx = new OfflineAudioContext(1, Math.ceil(rate * length), rate);
+  const notes = [
+    { freq: 1318.5, at: 0 }, // Mi6
+    { freq: 1046.5, at: 0.18 }, // Do6
+  ];
+  for (const { freq, at } of notes) {
+    for (const [mult, level] of [[1, 0.5], [2.01, 0.12], [3, 0.05]]) {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.frequency.value = freq * mult;
+      gain.gain.setValueAtTime(0.0001, at);
+      gain.gain.exponentialRampToValueAtTime(level, at + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(at);
+      osc.stop(at + 1.2);
+    }
+  }
+  const buffer = await ctx.startRendering();
+  return encodeWav(buffer, 0, buffer.duration);
+}
+
+async function seedDefaultPad() {
+  const blob = await synthesizeDing();
+  const sound = {
+    id: crypto.randomUUID(),
+    name: 'Ding',
+    blob,
+    duration: 1.4,
+    color: COLORS[0],
+    code: 'Digit1',
+    key: '1',
+    loop: false,
+    createdAt: Date.now(),
+  };
+  await db.put(sound);
+  addPad(sound);
+}
+
+// ---------------------------------------------------------------------------
 // Avvio
 // ---------------------------------------------------------------------------
 (async () => {
@@ -743,6 +791,17 @@ document.addEventListener('keydown', (e) => {
 
   const all = await db.all();
   all.sort(byOrder).forEach(addPad);
+
+  let seeded = true;
+  try {
+    seeded = localStorage.getItem(SEEDED_KEY) !== null;
+  } catch {}
+  if (!seeded) {
+    try {
+      localStorage.setItem(SEEDED_KEY, '1');
+    } catch {}
+    if (!all.length) await seedDefaultPad();
+  }
   updateEmptyState();
 })();
 
