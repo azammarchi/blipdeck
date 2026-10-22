@@ -1,7 +1,7 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Storage: sounds (audio blob + metadata) live in the browser's IndexedDB.
+// Storage: sounds (audio + metadata) live in the browser's IndexedDB.
 // ---------------------------------------------------------------------------
 const DB_NAME = 'blipdeck';
 const STORE = 'sounds';
@@ -31,9 +31,26 @@ async function dbOp(mode, fn) {
   });
 }
 
+// In memory a sound keeps its audio as a Blob; in the database it is stored as
+// raw bytes. Some browsers can't store Blobs (Safari private windows, for
+// one), while an ArrayBuffer is accepted everywhere. Records saved as Blobs by
+// earlier versions are still read.
+async function toRecord({ blob, ...sound }) {
+  return { ...sound, audio: await blob.arrayBuffer(), mimeType: blob.type };
+}
+
+function fromRecord({ audio, mimeType, ...record }) {
+  return audio ? { ...record, blob: new Blob([audio], { type: mimeType }) } : record;
+}
+
 const db = {
-  all: () => dbOp('readonly', (s) => s.getAll()),
-  put: (sound) => dbOp('readwrite', (s) => s.put(sound)),
+  all: async () => (await dbOp('readonly', (s) => s.getAll())).map(fromRecord),
+  // The bytes are read before the transaction opens: it would close itself
+  // while waiting for them.
+  put: async (sound) => {
+    const record = await toRecord(sound);
+    return dbOp('readwrite', (s) => s.put(record));
+  },
   remove: (id) => dbOp('readwrite', (s) => s.delete(id)),
 };
 
@@ -1218,7 +1235,7 @@ async function migrateLegacyData() {
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
     });
-    for (const sound of old) await db.put(sound);
+    for (const record of old) await db.put(fromRecord(record));
   }
   legacy.close();
   indexedDB.deleteDatabase(LEGACY_PREFIX);
