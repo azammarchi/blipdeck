@@ -12,3 +12,6 @@ soundpad-*.json
 *.webm
 *.flac
 *.aac
+
+# Local Claude Code settings
+.claude/
