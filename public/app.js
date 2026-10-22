@@ -180,10 +180,13 @@ function renderPad({ sound, el }) {
 
 function renderPlaying(entry) {
   entry.el.classList.toggle('playing', !!entry.voice);
-  if (entry.voice) requestAnimationFrame(() => tickProgress(entry, entry.voice));
+  const { voice } = entry;
+  if (voice) requestAnimationFrame(() => tickProgress(entry, voice));
   else entry.el.querySelector('.progress').style.width = '0';
 }
 
+// Runs every frame while `voice` is the pad's current sound; it stops by
+// itself once the sound ends or is replaced.
 function tickProgress(entry, voice) {
   if (entry.voice !== voice) return;
   const { duration } = voice.source.buffer;
