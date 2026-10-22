@@ -80,6 +80,7 @@ function addPad(sound) {
 
   el.querySelector('.play').addEventListener('click', () => trigger(sound.id));
   el.querySelector('.assign').addEventListener('click', () => startAssign(sound.id));
+  el.querySelector('.trim').addEventListener('click', () => openTrim(sound.id));
   el.querySelector('.rename').addEventListener('click', () => rename(sound.id));
   el.querySelector('.loop').addEventListener('click', () => toggleLoop(sound.id));
   el.querySelector('.delete').addEventListener('click', () => removePad(sound.id));
@@ -232,6 +233,300 @@ async function createSound(blob, name, duration) {
 }
 
 // ---------------------------------------------------------------------------
+// Ritaglio: l'audio viene decodificato, si sceglie inizio/fine sulla forma
+// d'onda e la parte tenuta viene salvata come WAV al posto dell'originale.
+// ---------------------------------------------------------------------------
+const MIN_TRIM = 0.05; // secondi
+const FADE = 0.005; // dissolvenza ai bordi del taglio, evita i "click"
+
+const trimDialog = $('#trimDialog');
+const wave = $('.wave-wrap');
+const trim = { entry: null, buffer: null, start: 0, end: 0, source: null, raf: 0 };
+let audioCtx = null;
+let dragging = null;
+
+async function openTrim(id) {
+  const entry = sounds.get(id);
+  entry.audio.pause();
+  audioCtx ||= new AudioContext();
+  let buffer;
+  try {
+    buffer = await audioCtx.decodeAudioData(await entry.sound.blob.arrayBuffer());
+  } catch (err) {
+    alert(`Impossibile leggere l'audio: ${err.message}`);
+    return;
+  }
+  Object.assign(trim, { entry, buffer, start: 0, end: buffer.duration });
+  $('#trimName').textContent = `"${entry.sound.name}"`;
+  trimDialog.showModal();
+  drawWaveform();
+  renderTrim();
+}
+
+function drawWaveform() {
+  const canvas = $('#trimCanvas');
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width = canvas.clientWidth * dpr;
+  canvas.height = canvas.clientHeight * dpr;
+  const ctx = canvas.getContext('2d');
+  const { width, height } = canvas;
+  const channels = [...Array(trim.buffer.numberOfChannels)].map((_, c) => trim.buffer.getChannelData(c));
+  const step = Math.max(1, Math.floor(trim.buffer.length / width));
+  ctx.clearRect(0, 0, width, height);
+  ctx.fillStyle = trim.entry.sound.color;
+  for (let x = 0; x < width; x++) {
+    let min = 0;
+    let max = 0;
+    for (let i = x * step; i < (x + 1) * step && i < trim.buffer.length; i++) {
+      for (const ch of channels) {
+        if (ch[i] < min) min = ch[i];
+        if (ch[i] > max) max = ch[i];
+      }
+    }
+    const top = ((1 - max) / 2) * height;
+    const bottom = ((1 - min) / 2) * height;
+    ctx.fillRect(x, top, 1, Math.max(1, bottom - top));
+  }
+}
+
+function renderTrim() {
+  const total = trim.buffer.duration;
+  const startPct = (trim.start / total) * 100;
+  const endPct = (trim.end / total) * 100;
+  $('#trimHandleStart').style.left = `${startPct}%`;
+  $('#trimHandleEnd').style.left = `${endPct}%`;
+  Object.assign($('#trimShadeStart').style, { left: '0', width: `${startPct}%` });
+  Object.assign($('#trimShadeEnd').style, { left: `${endPct}%`, right: '0' });
+  $('#trimStartLabel').textContent = `${trim.start.toFixed(2)}s`;
+  $('#trimEndLabel').textContent = `${trim.end.toFixed(2)}s`;
+  $('#trimLengthLabel').textContent = `${(trim.end - trim.start).toFixed(2)}s`;
+}
+
+function timeAt(clientX) {
+  const rect = wave.getBoundingClientRect();
+  const ratio = Math.min(1, Math.max(0, (clientX - rect.left) / rect.width));
+  return ratio * trim.buffer.duration;
+}
+
+function moveHandle(t) {
+  stopPreview();
+  if (dragging === 'start') trim.start = Math.max(0, Math.min(t, trim.end - MIN_TRIM));
+  else trim.end = Math.min(trim.buffer.duration, Math.max(t, trim.start + MIN_TRIM));
+  renderTrim();
+}
+
+// Un clic o trascinamento sposta la maniglia più vicina al puntatore.
+wave.addEventListener('pointerdown', (e) => {
+  const t = timeAt(e.clientX);
+  dragging = Math.abs(t - trim.start) <= Math.abs(t - trim.end) ? 'start' : 'end';
+  wave.setPointerCapture(e.pointerId);
+  moveHandle(t);
+});
+wave.addEventListener('pointermove', (e) => dragging && moveHandle(timeAt(e.clientX)));
+wave.addEventListener('pointerup', () => (dragging = null));
+wave.addEventListener('pointercancel', () => (dragging = null));
+
+function startPreview() {
+  stopPreview();
+  const source = audioCtx.createBufferSource();
+  const gain = audioCtx.createGain();
+  gain.gain.value = masterVolume;
+  source.buffer = trim.buffer;
+  source.connect(gain).connect(audioCtx.destination);
+  const startedAt = audioCtx.currentTime;
+  source.start(0, trim.start, trim.end - trim.start);
+  source.onended = () => trim.source === source && stopPreview();
+  trim.source = source;
+  $('#trimPreviewBtn').textContent = '■ Stop';
+  const playhead = $('#trimPlayhead');
+  playhead.hidden = false;
+  const tick = () => {
+    const t = trim.start + (audioCtx.currentTime - startedAt);
+    playhead.style.left = `${(Math.min(t, trim.end) / trim.buffer.duration) * 100}%`;
+    trim.raf = requestAnimationFrame(tick);
+  };
+  tick();
+}
+
+function stopPreview() {
+  if (trim.source) {
+    const source = trim.source;
+    trim.source = null;
+    try { source.stop(); } catch {}
+  }
+  cancelAnimationFrame(trim.raf);
+  $('#trimPlayhead').hidden = true;
+  $('#trimPreviewBtn').textContent = '▶ Anteprima';
+}
+
+// Toglie il silenzio iniziale e finale: soglia relativa al picco del suono.
+function autoTrim() {
+  const { buffer } = trim;
+  const channels = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
+  const level = (i) => Math.max(...channels.map((ch) => Math.abs(ch[i])));
+  let peak = 0;
+  for (let i = 0; i < buffer.length; i++) peak = Math.max(peak, level(i));
+  if (!peak) return;
+  const threshold = peak * 0.08;
+  let first = 0;
+  while (first < buffer.length && level(first) < threshold) first++;
+  let last = buffer.length - 1;
+  while (last > first && level(last) < threshold) last--;
+  const pad = 0.05;
+  stopPreview();
+  trim.start = Math.max(0, first / buffer.sampleRate - pad);
+  trim.end = Math.min(buffer.duration, last / buffer.sampleRate + pad);
+  if (trim.end - trim.start < MIN_TRIM) trim.end = Math.min(buffer.duration, trim.start + MIN_TRIM);
+  renderTrim();
+}
+
+function encodeWav(buffer, start, end) {
+  const rate = buffer.sampleRate;
+  const channels = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
+  const from = Math.floor(start * rate);
+  const to = Math.min(buffer.length, Math.ceil(end * rate));
+  const frames = to - from;
+  const bytes = frames * channels.length * 2;
+  const view = new DataView(new ArrayBuffer(44 + bytes));
+  const text = (offset, str) => [...str].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
+  text(0, 'RIFF');
+  view.setUint32(4, 36 + bytes, true);
+  text(8, 'WAVE');
+  text(12, 'fmt ');
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, channels.length, true);
+  view.setUint32(24, rate, true);
+  view.setUint32(28, rate * channels.length * 2, true);
+  view.setUint16(32, channels.length * 2, true);
+  view.setUint16(34, 16, true);
+  text(36, 'data');
+  view.setUint32(40, bytes, true);
+
+  const fadeFrames = Math.min(Math.floor(FADE * rate), Math.floor(frames / 2));
+  let offset = 44;
+  for (let i = 0; i < frames; i++) {
+    const fade = fadeFrames ? Math.min(1, i / fadeFrames, (frames - 1 - i) / fadeFrames) : 1;
+    for (const ch of channels) {
+      const v = Math.max(-1, Math.min(1, ch[from + i] * fade));
+      view.setInt16(offset, v < 0 ? v * 0x8000 : v * 0x7fff, true);
+      offset += 2;
+    }
+  }
+  return new Blob([view], { type: 'audio/wav' });
+}
+
+async function saveTrim() {
+  const { entry, buffer, start, end } = trim;
+  stopPreview();
+  entry.sound.blob = encodeWav(buffer, start, end);
+  entry.sound.duration = end - start;
+  await db.put(entry.sound);
+  URL.revokeObjectURL(entry.url);
+  entry.url = URL.createObjectURL(entry.sound.blob);
+  entry.audio.src = entry.url;
+  entry.el.querySelector('.progress').style.width = '0';
+  renderPad(entry);
+  trimDialog.close();
+}
+
+$('#trimPreviewBtn').addEventListener('click', () => (trim.source ? stopPreview() : startPreview()));
+$('#trimAutoBtn').addEventListener('click', autoTrim);
+$('#trimSaveBtn').addEventListener('click', saveTrim);
+trimDialog.addEventListener('close', () => {
+  stopPreview();
+  trim.entry = null;
+  trim.buffer = null;
+});
+
+// ---------------------------------------------------------------------------
+// Export / import: un unico file JSON con tutti i suoni (audio in base64),
+// nomi, tasti, colori e loop. Serve per backup o per spostarli su un altro PC.
+// ---------------------------------------------------------------------------
+const BANK_FORMAT = 'soundpad-bank';
+
+function blobToDataUrl(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function exportBank() {
+  if (!sounds.size) {
+    alert('Non ci sono suoni da esportare.');
+    return;
+  }
+  const list = [...sounds.values()].map((e) => e.sound).sort((a, b) => a.createdAt - b.createdAt);
+  const bank = {
+    format: BANK_FORMAT,
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    sounds: await Promise.all(
+      list.map(async ({ blob, id, ...meta }) => ({ ...meta, audio: await blobToDataUrl(blob) })),
+    ),
+  };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(bank)], { type: 'application/json' }));
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `soundpad-${new Date().toISOString().slice(0, 10)}.json`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function importBank(file) {
+  let bank;
+  try {
+    bank = JSON.parse(await file.text());
+  } catch {
+    alert(`"${file.name}" non è un file JSON valido.`);
+    return;
+  }
+  if (bank?.format !== BANK_FORMAT || !Array.isArray(bank.sounds)) {
+    alert(`"${file.name}" non è una soundboard esportata da Soundpad.`);
+    return;
+  }
+  const replace =
+    sounds.size > 0 &&
+    confirm(
+      `Importo ${bank.sounds.length} suoni.\n\n` +
+        'OK = sostituisci tutti i suoni attuali\nAnnulla = aggiungili a quelli esistenti',
+    );
+  if (replace) {
+    stopAll();
+    for (const [id, entry] of sounds) {
+      URL.revokeObjectURL(entry.url);
+      entry.el.remove();
+      await db.remove(id);
+    }
+    sounds.clear();
+  }
+  const usedCodes = new Set([...sounds.values()].map((e) => e.sound.code).filter(Boolean));
+  for (const item of bank.sounds) {
+    const blob = await (await fetch(item.audio)).blob();
+    // In aggiunta, i tasti già usati restano ai suoni esistenti.
+    const keepKey = item.code && !usedCodes.has(item.code) && !RESERVED_CODES.has(item.code);
+    if (keepKey) usedCodes.add(item.code);
+    const sound = {
+      id: crypto.randomUUID(),
+      name: String(item.name || 'Suono'),
+      blob,
+      duration: Number(item.duration) || 0,
+      color: item.color || nextColor(),
+      code: keepKey ? item.code : null,
+      key: keepKey ? item.key : null,
+      loop: !!item.loop,
+      createdAt: Date.now() + sounds.size, // mantiene l'ordine del file
+    };
+    await db.put(sound);
+    addPad(sound);
+  }
+  updateEmptyState();
+}
+
+// ---------------------------------------------------------------------------
 // Registrazione
 // ---------------------------------------------------------------------------
 let recorder = null;
@@ -295,13 +590,20 @@ $('#masterVolume').addEventListener('input', (e) => {
 
 $('#importInput').addEventListener('change', async (e) => {
   for (const file of e.target.files) {
-    await createSound(file, file.name.replace(/\.[^.]+$/, ''), 0);
+    if (file.name.endsWith('.json') || file.type === 'application/json') {
+      await importBank(file);
+    } else {
+      await createSound(file, file.name.replace(/\.[^.]+$/, ''), 0);
+    }
   }
   e.target.value = '';
 });
 
+$('#exportBtn').addEventListener('click', exportBank);
+
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (trimDialog.open) return;
   if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
 
   if (assigningId) {

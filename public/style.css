@@ -118,8 +118,8 @@ main { flex: 1; padding: 24px; }
 }
 
 .pad .actions { display: flex; gap: 2px; padding: 6px; }
-.pad .actions button { flex: 1; padding: 6px 4px; font-size: 12px; background: var(--panel-hi); }
-.pad .actions .danger { flex: 0 0 32px; background: transparent; }
+.pad .actions button { flex: 1; min-width: 0; padding: 6px 2px; font-size: 12px; background: var(--panel-hi); }
+.pad .actions .danger { flex: 0 0 24px; background: transparent; }
 .pad .actions .loop.on { background: var(--accent); }
 .pad.assigning .assign { background: #f5b942; color: #000; }
 
@@ -132,3 +132,60 @@ kbd {
   background: var(--panel-hi);
   border: 1px solid #3a3f4d;
 }
+
+/* Editor di ritaglio */
+.trim-dialog {
+  width: min(900px, calc(100vw - 32px));
+  padding: 20px 24px;
+  border: 1px solid var(--panel-hi);
+  border-radius: var(--radius);
+  background: var(--panel);
+  color: var(--text);
+}
+.trim-dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+.trim-dialog h2 { margin: 0 0 4px; font-size: 18px; }
+.trim-dialog .hint { margin: 0 0 14px; color: var(--muted); font-size: 13px; }
+
+.wave-wrap {
+  position: relative;
+  height: 160px;
+  border-radius: 8px;
+  background: var(--bg);
+  overflow: hidden;
+  touch-action: none;
+  user-select: none;
+}
+.wave-wrap canvas { display: block; width: 100%; height: 100%; }
+.wave-wrap .shade { position: absolute; top: 0; bottom: 0; background: rgba(0, 0, 0, 0.6); pointer-events: none; }
+.wave-wrap .handle {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 14px;
+  margin-left: -7px;
+  cursor: ew-resize;
+}
+.wave-wrap .handle::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 5px;
+  width: 4px;
+  border-radius: 2px;
+  background: #f5b942;
+}
+.wave-wrap .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; pointer-events: none; }
+
+.trim-times {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0 16px;
+  color: var(--muted);
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+.trim-times strong { color: var(--text); }
+
+.trim-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.trim-buttons .spacer { flex: 1; }
