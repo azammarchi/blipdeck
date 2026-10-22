@@ -24,6 +24,7 @@ Quando chiudi la scheda (o la finestra) dell'app il server si ferma da solo. Ric
 | Importare un file audio | **Importa** e scegli uno o più file audio |
 | Ritagliare un suono | **Taglia** sul pad: trascina le maniglie gialle, **Anteprima** per ascoltare, **Togli silenzi** per tagliare in automatico i silenzi all'inizio e alla fine, poi **Salva** |
 | Riprodurre | clic sul pad o la sua scorciatoia |
+| Cambiare l'ordine dei pad | tieni premuto un pad finché si "solleva", poi trascinalo dove vuoi |
 | Assegnare una scorciatoia | **Tasto** sul pad, poi premi il tasto desiderato (`Backspace` la rimuove, `Esc` annulla) |
 | Rinominare / loop / eliminare | pulsanti **Nome**, **Loop**, **✕** sul pad |
 | Fermare tutto | **Ferma tutto** o `Esc` |

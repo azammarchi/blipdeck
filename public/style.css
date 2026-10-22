@@ -189,3 +189,14 @@ kbd {
 
 .trim-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
 .trim-buttons .spacer { flex: 1; }
+
+/* Riordino con pressione lunga */
+.pad .play { touch-action: none; -webkit-touch-callout: none; }
+.pad.drag-placeholder { opacity: 0.3; }
+.drag-ghost {
+  position: fixed;
+  z-index: 10;
+  pointer-events: none;
+  transform: scale(1.05) rotate(-1.5deg);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
+}

@@ -60,6 +60,12 @@ function keyLabel(key) {
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
+// I pad mai spostati non hanno `order` e restano in ordine di creazione, dopo
+// quelli riordinati (che hanno order = posizione 0, 1, 2...).
+function byOrder(a, b) {
+  return (a.order ?? a.createdAt) - (b.order ?? b.createdAt);
+}
+
 function nextColor() {
   return COLORS[sounds.size % COLORS.length];
 }
@@ -78,7 +84,9 @@ function addPad(sound) {
   const entry = { sound, audio, url, el };
   sounds.set(sound.id, entry);
 
-  el.querySelector('.play').addEventListener('click', () => trigger(sound.id));
+  const play = el.querySelector('.play');
+  play.addEventListener('click', () => suppressClick || trigger(sound.id));
+  enableReorder(el, play);
   el.querySelector('.assign').addEventListener('click', () => startAssign(sound.id));
   el.querySelector('.trim').addEventListener('click', () => openTrim(sound.id));
   el.querySelector('.rename').addEventListener('click', () => rename(sound.id));
@@ -230,6 +238,97 @@ async function createSound(blob, name, duration) {
   };
   await db.put(sound);
   addPad(sound);
+}
+
+// ---------------------------------------------------------------------------
+// Riordino: tenendo premuto un pad lo si "solleva" e lo si trascina in un'altra
+// posizione. Un clic normale continua a riprodurre il suono.
+// ---------------------------------------------------------------------------
+const LONG_PRESS_MS = 350;
+const MOVE_TOLERANCE = 8; // px: se ci si muove prima, non è una pressione lunga
+let suppressClick = false;
+
+function enableReorder(el, handle) {
+  let timer = null;
+  let drag = null;
+  let startX = 0;
+  let startY = 0;
+  let lastX = 0;
+  let lastY = 0;
+
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0) return;
+    startX = lastX = e.clientX;
+    startY = lastY = e.clientY;
+    handle.setPointerCapture(e.pointerId);
+    timer = setTimeout(() => {
+      timer = null;
+      drag = startDrag(el, lastX, lastY);
+    }, LONG_PRESS_MS);
+  });
+
+  handle.addEventListener('pointermove', (e) => {
+    lastX = e.clientX;
+    lastY = e.clientY;
+    if (timer && Math.hypot(lastX - startX, lastY - startY) > MOVE_TOLERANCE) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    if (drag) moveDrag(drag, lastX, lastY);
+  });
+
+  const end = () => {
+    clearTimeout(timer);
+    timer = null;
+    if (!drag) return;
+    finishDrag(drag);
+    drag = null;
+    // Il click che segue il rilascio non deve far partire il suono.
+    suppressClick = true;
+    setTimeout(() => (suppressClick = false), 0);
+  };
+  handle.addEventListener('pointerup', end);
+  handle.addEventListener('pointercancel', end);
+  handle.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+function startDrag(el, x, y) {
+  const rect = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true);
+  ghost.classList.add('drag-ghost');
+  Object.assign(ghost.style, {
+    width: `${rect.width}px`,
+    height: `${rect.height}px`,
+    left: `${rect.left}px`,
+    top: `${rect.top}px`,
+  });
+  document.body.appendChild(ghost);
+  el.classList.add('drag-placeholder');
+  return { el, ghost, dx: x - rect.left, dy: y - rect.top };
+}
+
+function moveDrag(drag, x, y) {
+  drag.ghost.style.left = `${x - drag.dx}px`;
+  drag.ghost.style.top = `${y - drag.dy}px`;
+  const target = document.elementFromPoint(x, y)?.closest('.pad');
+  if (!target || target === drag.el || target.parentElement !== grid) return;
+  const pads = [...grid.children];
+  if (pads.indexOf(drag.el) < pads.indexOf(target)) target.after(drag.el);
+  else target.before(drag.el);
+}
+
+async function finishDrag(drag) {
+  drag.ghost.remove();
+  drag.el.classList.remove('drag-placeholder');
+  const byEl = new Map([...sounds.values()].map((entry) => [entry.el, entry]));
+  const pads = [...grid.children];
+  for (let i = 0; i < pads.length; i++) {
+    const { sound } = byEl.get(pads[i]);
+    if (sound.order !== i) {
+      sound.order = i;
+      await db.put(sound);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -459,7 +558,7 @@ async function exportBank() {
     alert('Non ci sono suoni da esportare.');
     return;
   }
-  const list = [...sounds.values()].map((e) => e.sound).sort((a, b) => a.createdAt - b.createdAt);
+  const list = [...sounds.values()].map((e) => e.sound).sort(byOrder);
   const bank = {
     format: BANK_FORMAT,
     version: 1,
@@ -643,7 +742,7 @@ document.addEventListener('keydown', (e) => {
   } catch {}
 
   const all = await db.all();
-  all.sort((a, b) => a.createdAt - b.createdAt).forEach(addPad);
+  all.sort(byOrder).forEach(addPad);
   updateEmptyState();
 })();
 
