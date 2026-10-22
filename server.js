@@ -50,7 +50,9 @@ const server = http.createServer((req, res) => {
     return;
   }
   const file = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
-  if (!file.startsWith(ROOT)) {
+  // Only files inside public/: a plain prefix check would also let through a
+  // sibling folder whose name starts the same way (public-something/).
+  if (file !== ROOT && !file.startsWith(ROOT + path.sep)) {
     res.writeHead(403).end();
     return;
   }
