@@ -13,23 +13,39 @@ const TYPES = {
   '.svg': 'image/svg+xml',
 };
 
-http
-  .createServer((req, res) => {
-    const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
-    const file = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
-    if (!file.startsWith(ROOT)) {
-      res.writeHead(403).end();
+const server = http.createServer((req, res) => {
+  const urlPath = decodeURIComponent(new URL(req.url, 'http://x').pathname);
+  const file = path.join(ROOT, urlPath === '/' ? 'index.html' : urlPath);
+  if (!file.startsWith(ROOT)) {
+    res.writeHead(403).end();
+    return;
+  }
+  fs.readFile(file, (err, data) => {
+    if (err) {
+      res.writeHead(404).end('Not found');
       return;
     }
-    fs.readFile(file, (err, data) => {
-      if (err) {
-        res.writeHead(404).end('Not found');
-        return;
-      }
-      res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
-      res.end(data);
-    });
-  })
-  .listen(PORT, '127.0.0.1', () => {
-    console.log(`Soundpad in ascolto su http://localhost:${PORT}`);
+    res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' });
+    res.end(data);
   });
+});
+
+// Se la porta è occupata proviamo le successive, invece di andare in crash.
+function listen(port, attemptsLeft) {
+  server.once('error', (err) => {
+    if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
+      console.log(`Porta ${port} occupata, provo la ${port + 1}...`);
+      listen(port + 1, attemptsLeft - 1);
+    } else {
+      console.error(err.message);
+      process.exit(1);
+    }
+  });
+  server.listen(port, '127.0.0.1');
+}
+
+server.on('listening', () => {
+  console.log(`Soundpad in ascolto su http://localhost:${server.address().port}`);
+});
+
+listen(PORT, 10);
