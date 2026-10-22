@@ -68,6 +68,16 @@
     </div>
   </header>
 
+  <!-- Online demo only: shown once the visitor has sounds of their own. -->
+  <div id="backupNotice" class="notice" role="status" hidden>
+    <svg class="icon"><use href="#i-download"/></svg>
+    <p data-i18n="backupNotice"></p>
+    <div class="notice-actions">
+      <button id="backupExportBtn"><svg class="icon"><use href="#i-download"/></svg><span data-i18n="export"></span></button>
+      <button id="backupLaterBtn" class="secondary" data-i18n="backupLater"></button>
+    </div>
+  </div>
+
   <main>
     <p id="emptyState" class="empty" data-i18n-html="emptyState"></p>
     <div id="grid" class="grid"></div>

@@ -92,25 +92,37 @@ const savedAudio = new WeakSet();
 const savedOriginals = new Map(); // id -> the untrimmed audio the server has
 let boardWasNew = false;
 
-const DETAIL_FIELDS = ['name', 'duration', 'color', 'code', 'key', 'loop', 'order', 'createdAt'];
+const DETAIL_FIELDS = ['name', 'duration', 'color', 'code', 'key', 'loop', 'order', 'createdAt', 'sample'];
 
 const fileStore = {
   all: async () => {
     const board = await (await api('GET', 'board')).json();
     boardWasNew = board.firstRun;
-    return Promise.all(
+    const loaded = await Promise.all(
       board.sounds.map(async (meta) => {
         const sound = Object.fromEntries(DETAIL_FIELDS.filter((f) => f in meta).map((f) => [f, meta[f]]));
         sound.id = meta.id;
-        sound.blob = await (await api('GET', `sounds/${meta.id}/audio`)).blob();
+        try {
+          sound.blob = await (await api('GET', `sounds/${meta.id}/audio`)).blob();
+        } catch (err) {
+          // Deleted (or still being saved) by another tab right now, or its
+          // file was removed by hand: load the others rather than none.
+          console.warn(`Skipping "${meta.name}": its audio file can't be read`, err);
+          return null;
+        }
         savedAudio.add(sound.blob);
         if (meta.originalFile) {
-          sound.original = await (await api('GET', `sounds/${meta.id}/audio?original`)).blob();
-          savedOriginals.set(meta.id, sound.original);
+          try {
+            sound.original = await (await api('GET', `sounds/${meta.id}/audio?original`)).blob();
+            savedOriginals.set(meta.id, sound.original);
+          } catch (err) {
+            console.warn(`The untrimmed audio of "${meta.name}" can't be read`, err);
+          }
         }
         return sound;
       }),
     );
+    return loaded.filter(Boolean);
   },
   put: async (sound) => {
     const details = Object.fromEntries(DETAIL_FIELDS.filter((f) => f in sound).map((f) => [f, sound[f]]));
@@ -421,8 +433,10 @@ async function save(...list) {
   }
 }
 
+// Runs whenever pads are added or removed.
 function updateEmptyState() {
   $('#emptyState').hidden = sounds.size > 0;
+  updateBackupNotice();
 }
 
 async function createSound(blob, name, duration) {
@@ -439,7 +453,40 @@ async function createSound(blob, name, duration) {
   };
   await db.put(sound);
   addPad(sound);
+  protectBrowserStorage();
 }
+
+// ---------------------------------------------------------------------------
+// Online demo: the sounds live only in this browser, which may delete them to
+// free up space. Once the visitor has sounds of their own, the app asks the
+// browser to keep its data, and suggests an export every now and then.
+// ---------------------------------------------------------------------------
+const BACKUP_KEY = 'blipdeck.backupNoticeHiddenAt';
+const BACKUP_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000;
+
+// Sample pads don't count. (Samples seeded by earlier versions have no
+// `sample` flag, so their names are checked too.)
+function hasOwnSounds() {
+  return [...sounds.values()].some(({ sound }) => !sound.sample && !(sound.name in SAMPLES));
+}
+
+function protectBrowserStorage() {
+  if (IS_LOCAL_SERVER || !hasOwnSounds()) return;
+  navigator.storage?.persist?.().catch(() => {});
+}
+
+function updateBackupNotice() {
+  const hiddenAt = Number(readSetting(BACKUP_KEY)) || 0;
+  $('#backupNotice').hidden = IS_LOCAL_SERVER || !hasOwnSounds() || Date.now() - hiddenAt < BACKUP_INTERVAL_MS;
+}
+
+function hideBackupNotice() {
+  writeSetting(BACKUP_KEY, String(Date.now()));
+  updateBackupNotice();
+}
+
+$('#backupExportBtn').addEventListener('click', () => exportBank());
+$('#backupLaterBtn').addEventListener('click', hideBackupNotice);
 
 // ---------------------------------------------------------------------------
 // Reordering: press a pad and move the pointer to drag it to another
@@ -820,6 +867,7 @@ async function exportBank() {
   link.href = url;
   link.download = `blipdeck-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
+  hideBackupNotice(); // a fresh backup: no need to remind for a while
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
@@ -1144,7 +1192,7 @@ async function resetDemo() {
   if (!confirm(t('resetDemoConfirm'))) return;
   stopAll();
   for (const id of [...sounds.keys()]) await db.remove(id);
-  for (const key of [VOLUME_KEY, LANGUAGE_KEY, SEEDED_KEY]) {
+  for (const key of [VOLUME_KEY, LANGUAGE_KEY, SEEDED_KEY, BACKUP_KEY]) {
     try {
       localStorage.removeItem(key);
     } catch {}
@@ -1298,6 +1346,7 @@ async function seedSamples(names) {
       code: `Digit${i + 1}`,
       key: String(i + 1),
       loop: false,
+      sample: true,
       createdAt: Date.now() + i,
     };
     await db.put(sound);

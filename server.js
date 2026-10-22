@@ -69,7 +69,7 @@ function handleEvents(req, res) {
 // ---------------------------------------------------------------------------
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 // Details the browser may set; file names and types are decided here.
-const SOUND_FIELDS = ['name', 'duration', 'color', 'code', 'key', 'loop', 'order', 'createdAt'];
+const SOUND_FIELDS = ['name', 'duration', 'color', 'code', 'key', 'loop', 'order', 'createdAt', 'sample'];
 
 async function readBoard() {
   try {

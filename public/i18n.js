@@ -26,6 +26,8 @@ const LANGUAGES = {
       resetDemo: 'Reset demo',
       resetDemoTitle: 'Restore the demo to how it was on your first visit',
       resetDemoConfirm: 'Reset the demo? Your changes in this browser (sounds, names, keys, order, language) will be lost and the 8 sample pads restored.',
+      backupNotice: 'Your sounds are saved only in this browser, which may delete them to free up space. Export a backup to keep them safe.',
+      backupLater: 'Later',
       volumeTitle: 'Master volume',
       languageTitle: 'Language',
       emptyState:
@@ -87,6 +89,8 @@ const LANGUAGES = {
       resetDemo: 'Ripristina demo',
       resetDemoTitle: 'Riporta la demo com\'era alla tua prima visita',
       resetDemoConfirm: 'Ripristinare la demo? Le modifiche fatte in questo browser (suoni, nomi, tasti, ordine, lingua) andranno perse e torneranno gli 8 pad di esempio.',
+      backupNotice: 'I tuoi suoni sono salvati solo in questo browser, che potrebbe cancellarli per liberare spazio. Esporta un backup per tenerli al sicuro.',
+      backupLater: 'Più tardi',
       volumeTitle: 'Volume generale',
       languageTitle: 'Lingua',
       emptyState:
@@ -148,6 +152,8 @@ const LANGUAGES = {
       resetDemo: 'Restablecer demo',
       resetDemoTitle: 'Devuelve la demo a como estaba en tu primera visita',
       resetDemoConfirm: '¿Restablecer la demo? Se perderán los cambios hechos en este navegador (sonidos, nombres, teclas, orden, idioma) y volverán los 8 pads de ejemplo.',
+      backupNotice: 'Tus sonidos solo se guardan en este navegador, que podría borrarlos para liberar espacio. Exporta una copia de seguridad para conservarlos.',
+      backupLater: 'Más tarde',
       volumeTitle: 'Volumen general',
       languageTitle: 'Idioma',
       emptyState:
@@ -209,6 +215,8 @@ const LANGUAGES = {
       resetDemo: 'Réinitialiser la démo',
       resetDemoTitle: 'Remettre la démo comme lors de votre première visite',
       resetDemoConfirm: 'Réinitialiser la démo ? Les modifications faites dans ce navigateur (sons, noms, touches, ordre, langue) seront perdues et les 8 pads d’exemple reviendront.',
+      backupNotice: 'Vos sons sont enregistrés uniquement dans ce navigateur, qui peut les supprimer pour libérer de l’espace. Exportez une sauvegarde pour les garder.',
+      backupLater: 'Plus tard',
       volumeTitle: 'Volume général',
       languageTitle: 'Langue',
       emptyState:
@@ -270,6 +278,8 @@ const LANGUAGES = {
       resetDemo: 'Demo zurücksetzen',
       resetDemoTitle: 'Die Demo auf den Stand deines ersten Besuchs zurücksetzen',
       resetDemoConfirm: 'Demo zurücksetzen? Deine Änderungen in diesem Browser (Sounds, Namen, Tasten, Reihenfolge, Sprache) gehen verloren und die 8 Beispiel-Pads kommen zurück.',
+      backupNotice: 'Deine Sounds sind nur in diesem Browser gespeichert, der sie löschen kann, um Platz zu schaffen. Exportiere eine Sicherung, um sie zu behalten.',
+      backupLater: 'Später',
       volumeTitle: 'Gesamtlautstärke',
       languageTitle: 'Sprache',
       emptyState:
@@ -331,6 +341,8 @@ const LANGUAGES = {
       resetDemo: 'Redefinir demo',
       resetDemoTitle: 'Volta a demo ao estado da sua primeira visita',
       resetDemoConfirm: 'Redefinir a demo? As alterações feitas neste navegador (sons, nomes, teclas, ordem, idioma) serão perdidas e os 8 pads de exemplo voltarão.',
+      backupNotice: 'Seus sons ficam salvos só neste navegador, que pode apagá-los para liberar espaço. Exporte um backup para mantê-los seguros.',
+      backupLater: 'Mais tarde',
       volumeTitle: 'Volume geral',
       languageTitle: 'Idioma',
       emptyState:
@@ -392,6 +404,8 @@ const LANGUAGES = {
       resetDemo: 'Сбросить демо',
       resetDemoTitle: 'Вернуть демо к виду при первом посещении',
       resetDemoConfirm: 'Сбросить демо? Изменения в этом браузере (звуки, названия, клавиши, порядок, язык) будут потеряны, а 8 примеров кнопок вернутся.',
+      backupNotice: 'Ваши звуки хранятся только в этом браузере, и он может удалить их, чтобы освободить место. Экспортируйте резервную копию, чтобы не потерять их.',
+      backupLater: 'Позже',
       volumeTitle: 'Общая громкость',
       languageTitle: 'Язык',
       emptyState:
@@ -453,6 +467,8 @@ const LANGUAGES = {
       resetDemo: '重置演示',
       resetDemoTitle: '将演示恢复到你首次访问时的状态',
       resetDemoConfirm: '要重置演示吗？你在此浏览器中所做的更改（声音、名称、按键、顺序、语言）将会丢失，并恢复 8 个示例按钮。',
+      backupNotice: '你的声音只保存在此浏览器中，浏览器可能会为释放空间而删除它们。导出备份以确保安全。',
+      backupLater: '稍后',
       volumeTitle: '总音量',
       languageTitle: '语言',
       emptyState: '还没有声音。按 <strong>录音</strong>（或 <kbd>R</kbd> 键）创建一个，或导入音频文件或已导出的音效板。',
@@ -513,6 +529,8 @@ const LANGUAGES = {
       resetDemo: 'デモをリセット',
       resetDemoTitle: '初回訪問時の状態にデモを戻す',
       resetDemoConfirm: 'デモをリセットしますか？このブラウザでの変更（サウンド、名前、キー、順序、言語）は失われ、8 個のサンプルパッドが元に戻ります。',
+      backupNotice: 'サウンドはこのブラウザにのみ保存されており、空き容量確保のために削除されることがあります。バックアップをエクスポートして保護しましょう。',
+      backupLater: 'あとで',
       volumeTitle: '全体の音量',
       languageTitle: '言語',
       emptyState:
@@ -574,6 +592,8 @@ const LANGUAGES = {
       resetDemo: '데모 초기화',
       resetDemoTitle: '처음 방문했을 때의 상태로 데모를 되돌립니다',
       resetDemoConfirm: '데모를 초기화할까요? 이 브라우저에서 바꾼 내용(소리, 이름, 키, 순서, 언어)은 사라지고 예제 패드 8개가 돌아옵니다.',
+      backupNotice: '소리는 이 브라우저에만 저장되며, 공간 확보를 위해 삭제될 수 있습니다. 안전하게 보관하려면 백업을 내보내세요.',
+      backupLater: '나중에',
       volumeTitle: '전체 볼륨',
       languageTitle: '언어',
       emptyState:
@@ -635,6 +655,8 @@ const LANGUAGES = {
       resetDemo: 'डेमो रीसेट करें',
       resetDemoTitle: 'डेमो को आपकी पहली विज़िट जैसा कर दें',
       resetDemoConfirm: 'डेमो रीसेट करें? इस ब्राउज़र में किए गए बदलाव (ध्वनियाँ, नाम, कुंजियाँ, क्रम, भाषा) मिट जाएँगे और 8 उदाहरण पैड वापस आ जाएँगे।',
+      backupNotice: 'आपकी ध्वनियाँ केवल इसी ब्राउज़र में सहेजी गई हैं, जो जगह खाली करने के लिए उन्हें हटा सकता है। उन्हें सुरक्षित रखने के लिए बैकअप निर्यात करें।',
+      backupLater: 'बाद में',
       volumeTitle: 'मुख्य वॉल्यूम',
       languageTitle: 'भाषा',
       emptyState:
@@ -697,6 +719,8 @@ const LANGUAGES = {
       resetDemo: 'إعادة ضبط العرض',
       resetDemoTitle: 'إرجاع العرض التجريبي إلى حالته في زيارتك الأولى',
       resetDemoConfirm: 'إعادة ضبط العرض التجريبي؟ ستُفقد التغييرات التي أجريتها في هذا المتصفح (الأصوات والأسماء والمفاتيح والترتيب واللغة) وتعود الأزرار التجريبية الثمانية.',
+      backupNotice: 'أصواتك محفوظة في هذا المتصفح فقط، وقد يحذفها لتوفير المساحة. صدّر نسخة احتياطية للحفاظ عليها.',
+      backupLater: 'لاحقًا',
       volumeTitle: 'مستوى الصوت العام',
       languageTitle: 'اللغة',
       emptyState:

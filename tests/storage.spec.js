@@ -179,3 +179,68 @@ test('sounds and settings saved by the old "soundpad" version are migrated', asy
   expect(leftovers.databases).not.toContain('soundpad');
   expect(leftovers.keys).toEqual([]);
 });
+
+test.describe('protecting sounds in the online demo', () => {
+  test.beforeEach(async ({ page }) => {
+    // Record calls to navigator.storage.persist() (on the prototype: WebKit may
+    // hand out a fresh StorageManager object).
+    await page.addInitScript(() => {
+      window.__persistCalls = 0;
+      if (window.StorageManager) {
+        StorageManager.prototype.persist = async () => {
+          window.__persistCalls += 1;
+          return true;
+        };
+      }
+    });
+  });
+
+  test('sample pads alone show no reminder and ask for nothing', async ({ page, baseURL }) => {
+    await openDemo(page, baseURL);
+    await expect(page.locator('#backupNotice')).toBeHidden();
+    expect(await page.evaluate(() => window.__persistCalls)).toBe(0);
+  });
+
+  test('a sound of your own asks to keep the data and suggests a backup', async ({ page, baseURL }) => {
+    await openDemo(page, baseURL);
+    await page.evaluate(async () => {
+      const off = new OfflineAudioContext(1, 4410, 44100);
+      const osc = off.createOscillator();
+      osc.connect(off.destination);
+      osc.start();
+      const buffer = await off.startRendering();
+      await createSound(encodeWav(buffer, 0, buffer.duration), 'My take', buffer.duration);
+    });
+    await expect(page.locator('#backupNotice')).toBeVisible();
+    expect(await page.evaluate(() => window.__persistCalls)).toBeGreaterThan(0);
+
+    // "Later" hides it for a week, also after a reload.
+    await page.locator('#backupLaterBtn').click();
+    await expect(page.locator('#backupNotice')).toBeHidden();
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+    await expect(page.locator('#backupNotice')).toBeHidden();
+
+    // A week later it's back; exporting hides it again.
+    await page.evaluate(() => localStorage.setItem('blipdeck.backupNoticeHiddenAt', String(Date.now() - 8 * 86400000)));
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+    await expect(page.locator('#backupNotice')).toBeVisible();
+    const download = page.waitForEvent('download');
+    await page.locator('#backupExportBtn').click();
+    await download;
+    await expect(page.locator('#backupNotice')).toBeHidden();
+  });
+
+  test('the local app never shows the reminder', async ({ page }) => {
+    await openApp(page);
+    await usePads(page, []);
+    await page.evaluate(async () => {
+      const off = new OfflineAudioContext(1, 4410, 44100);
+      const buffer = await off.startRendering();
+      await createSound(encodeWav(buffer, 0, buffer.duration), 'My take', buffer.duration);
+    });
+    await expect(page.locator('#backupNotice')).toBeHidden();
+    expect(await page.evaluate(() => window.__persistCalls)).toBe(0);
+  });
+});

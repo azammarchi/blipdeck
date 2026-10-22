@@ -73,7 +73,8 @@ test('deleting a pad deletes its file', async ({ page, appServer }) => {
   await openPadMenu(page, 'Kick');
   await page.locator('#padMenu [data-action="delete"]').click();
   await expect.poll(() => board(appServer.soundsDir).sounds.map((s) => s.name)).toEqual(['Snare']);
-  expect(audioFiles(appServer.soundsDir)).toEqual([board(appServer.soundsDir).sounds[0].file]);
+  // The file goes a moment after board.json is updated.
+  await expect.poll(() => audioFiles(appServer.soundsDir)).toEqual([board(appServer.soundsDir).sounds[0].file]);
 });
 
 test('sounds saved in the browser by earlier versions move into the folder', async ({ page, appServer }) => {
@@ -141,4 +142,15 @@ test('the server refuses other hosts and invalid sound ids', async ({ request, a
     expect(response.status(), id).toBe(404);
   }
   expect(fs.existsSync(path.join(appServer.soundsDir, 'board.json'))).toBe(false);
+});
+
+test('a sound whose audio file is missing is skipped, the others still load', async ({ page, appServer }) => {
+  await openApp(page);
+  await usePads(page, ['Kick', 'Snare', 'Coin']);
+  await expect.poll(() => audioFiles(appServer.soundsDir).length).toBe(3);
+  const snare = board(appServer.soundsDir).sounds.find((s) => s.name === 'Snare');
+  fs.rmSync(path.join(appServer.soundsDir, snare.file));
+  await page.reload();
+  await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+  expect(await padNames(page)).toEqual(['Kick', 'Coin']);
 });
