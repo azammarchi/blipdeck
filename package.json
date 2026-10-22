@@ -1,0 +1,10 @@
+{
+  "name": "soundpad",
+  "version": "1.0.0",
+  "description": "Soundboard locale: registra suoni dal microfono e riproducili con pulsanti o scorciatoie da tastiera.",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "license": "MIT"
+}

@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Soundpad</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>Soundpad</h1>
+    <div class="toolbar">
+      <button id="recordBtn" class="record" title="Registra (R)">
+        <span class="dot"></span><span id="recordLabel">Registra</span>
+      </button>
+      <span id="timer" class="timer" hidden>0:00</span>
+      <label class="button secondary" title="Importa file audio">
+        Importa audio
+        <input id="importInput" type="file" accept="audio/*" multiple hidden>
+      </label>
+      <button id="stopAllBtn" class="secondary" title="Ferma tutto (Esc)">Ferma tutto</button>
+      <label class="volume" title="Volume generale">
+        🔊 <input id="masterVolume" type="range" min="0" max="1" step="0.01" value="1">
+      </label>
+    </div>
+  </header>
+
+  <main>
+    <p id="emptyState" class="empty">
+      Nessun suono ancora. Premi <strong>Registra</strong> (o il tasto <kbd>R</kbd>) per crearne uno,
+      oppure importa un file audio.
+    </p>
+    <div id="grid" class="grid"></div>
+  </main>
+
+  <footer>
+    <kbd>R</kbd> avvia/ferma registrazione · <kbd>Esc</kbd> ferma tutti i suoni ·
+    clicca <em>Tasto</em> su un pad per assegnargli una scorciatoia
+  </footer>
+
+  <template id="padTemplate">
+    <div class="pad">
+      <button class="play" title="Riproduci">
+        <span class="key"></span>
+        <span class="name"></span>
+        <span class="duration"></span>
+        <span class="progress"></span>
+      </button>
+      <div class="actions">
+        <button class="assign" title="Assegna scorciatoia">Tasto</button>
+        <button class="rename" title="Rinomina">Nome</button>
+        <button class="loop" title="Ripeti in loop">Loop</button>
+        <button class="delete danger" title="Elimina">✕</button>
+      </div>
+    </div>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
