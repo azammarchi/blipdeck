@@ -1,0 +1,59 @@
+name: Bug report
+description: Something doesn't work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! Security problems go through [private reporting](https://github.com/azammarchi/blipdeck/security) instead.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open the demo
+        2. Press the ⋯ button on a pad
+        3. ...
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - Online demo (GitHub Pages)
+        - Local app (npm start)
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser and version
+      placeholder: Safari 27, Chrome 156, Firefox 140...
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      placeholder: macOS 27, Windows 11, Ubuntu 26.04...
+    validations:
+      required: true
+  - type: textarea
+    id: debug
+    attributes:
+      label: Debug panel output (keyboard problems)
+      description: Open the app with `?debug` at the end of the address, reproduce the problem and paste what the panel at the bottom shows.
+      render: text
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, a recording, the language you use, a keypad or external keyboard...

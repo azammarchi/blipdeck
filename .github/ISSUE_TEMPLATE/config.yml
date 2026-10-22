@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Try the online demo
+    url: https://azammarchi.github.io/blipdeck/
+    about: Check whether something already works the way you need.
+  - name: Report a security vulnerability
+    url: https://github.com/azammarchi/blipdeck/security/advisories/new
+    about: Please report security problems privately, not as a public issue.

@@ -1,0 +1,22 @@
+name: Feature request
+description: An idea to make Blipdeck better
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: The situation or problem, rather than the solution. "When I'm streaming I want to..."
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: How could it work?
+      description: Your idea for the solution, if you have one.
+  - type: checkboxes
+    id: help
+    attributes:
+      label: Contributing
+      options:
+        - label: I'd like to work on this myself (see CONTRIBUTING.md)
