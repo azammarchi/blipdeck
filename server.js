@@ -3,6 +3,7 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { exec } = require('child_process');
 
 const PORT = Number(process.env.PORT) || 5173;
 const ROOT = path.join(__dirname, 'public');
@@ -45,7 +46,20 @@ function listen(port, attemptsLeft) {
 }
 
 server.on('listening', () => {
-  console.log(`Soundpad in ascolto su http://localhost:${server.address().port}`);
+  const url = `http://localhost:${server.address().port}`;
+  console.log(`Soundpad in ascolto su ${url}`);
+  if (!process.env.NO_OPEN) openBrowser(url);
 });
+
+// Apre l'URL nel browser predefinito. Si disattiva con NO_OPEN=1.
+function openBrowser(url) {
+  const command =
+    process.platform === 'darwin' ? `open "${url}"`
+    : process.platform === 'win32' ? `start "" "${url}"`
+    : `xdg-open "${url}"`;
+  exec(command, (err) => {
+    if (err) console.log(`Apri ${url} nel browser.`);
+  });
+}
 
 listen(PORT, 10);
