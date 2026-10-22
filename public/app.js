@@ -489,10 +489,12 @@ $('#backupExportBtn').addEventListener('click', () => exportBank());
 $('#backupLaterBtn').addEventListener('click', hideBackupNotice);
 
 // ---------------------------------------------------------------------------
-// Reordering: press a pad and move the pointer to drag it to another
-// position. A click without moving still plays the sound.
+// Reordering. With a mouse, press a pad and move to drag it right away. On a
+// touch screen a swipe must keep scrolling the page, so a pad is lifted by a
+// long press instead. Either way, a click or tap without moving plays it.
 // ---------------------------------------------------------------------------
-const DRAG_THRESHOLD = 6; // px the pointer must move before a press becomes a drag
+const DRAG_THRESHOLD = 6; // px a mouse must move before a press becomes a drag
+const LONG_PRESS_MS = 400; // how long a finger must rest on a pad to lift it
 let suppressClick = false;
 
 // Moves and release are listened for on the window, not on the pad: moving the
@@ -501,21 +503,44 @@ let suppressClick = false;
 function enableReorder(el, handle) {
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
+    const touch = e.pointerType === 'touch';
     const pointerId = e.pointerId;
     const startX = e.clientX;
     const startY = e.clientY;
+    let lastX = startX;
+    let lastY = startY;
     let drag = null;
+    let timer = null;
+
+    if (touch) {
+      timer = setTimeout(() => {
+        timer = null;
+        drag = startDrag(el, startX, startY);
+        moveDrag(drag, lastX, lastY);
+        navigator.vibrate?.(15);
+      }, LONG_PRESS_MS);
+    }
 
     const onMove = (ev) => {
       if (ev.pointerId !== pointerId) return;
+      lastX = ev.clientX;
+      lastY = ev.clientY;
       if (!drag) {
-        if (Math.hypot(ev.clientX - startX, ev.clientY - startY) < DRAG_THRESHOLD) return;
+        if (Math.hypot(lastX - startX, lastY - startY) < DRAG_THRESHOLD) return;
+        if (touch) {
+          // Moving before the long press: it's a swipe, let the page scroll.
+          stop();
+          return;
+        }
         // Grab the pad where the press started, so it doesn't jump under the pointer.
         drag = startDrag(el, startX, startY);
       }
       ev.preventDefault();
-      moveDrag(drag, ev.clientX, ev.clientY);
+      moveDrag(drag, lastX, lastY);
     };
+
+    // While a pad is lifted the finger drags it, it doesn't scroll the page.
+    const holdPage = (ev) => drag && ev.cancelable && ev.preventDefault();
 
     const onEnd = (ev) => {
       if (ev.pointerId !== undefined && ev.pointerId !== pointerId) return;
@@ -528,18 +553,22 @@ function enableReorder(el, handle) {
     };
 
     const stop = () => {
+      clearTimeout(timer);
+      timer = null;
       if (drag) finishDrag(drag);
       drag = null;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onEnd);
       window.removeEventListener('pointercancel', onEnd);
       window.removeEventListener('blur', onEnd);
+      window.removeEventListener('touchmove', holdPage);
     };
 
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onEnd);
     window.addEventListener('pointercancel', onEnd);
     window.addEventListener('blur', onEnd);
+    window.addEventListener('touchmove', holdPage, { passive: false });
   });
   handle.addEventListener('contextmenu', (e) => e.preventDefault());
 }

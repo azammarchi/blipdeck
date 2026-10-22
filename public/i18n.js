@@ -33,7 +33,7 @@ const LANGUAGES = {
       emptyState:
         'No sounds yet. Press <strong>Record</strong> (or the <kbd>R</kbd> key) to create one, or import an audio file or an exported soundboard.',
       footer:
-        '<kbd>R</kbd> start/stop recording · <kbd>Esc</kbd> stop all sounds · <strong>⋯</strong> on a pad: shortcut, trim, rename, loop, delete · drag a pad to reorder',
+        '<kbd>R</kbd> start/stop recording · <kbd>Esc</kbd> stop all sounds · <strong>⋯</strong> on a pad: shortcut, trim, rename, loop, delete · drag a pad to reorder (on touch screens, long-press it first)',
       playTitle: 'Play (drag to reorder)',
       assignTitle: 'Assign a keyboard shortcut',
       trimTitle: 'Trim this sound',
@@ -96,7 +96,7 @@ const LANGUAGES = {
       emptyState:
         'Nessun suono ancora. Premi <strong>Registra</strong> (o il tasto <kbd>R</kbd>) per crearne uno, oppure importa un file audio o una soundboard esportata.',
       footer:
-        '<kbd>R</kbd> avvia/ferma registrazione · <kbd>Esc</kbd> ferma tutti i suoni · <strong>⋯</strong> su un pad: scorciatoia, ritaglio, nome, loop, elimina · trascina un pad per riordinare',
+        '<kbd>R</kbd> avvia/ferma registrazione · <kbd>Esc</kbd> ferma tutti i suoni · <strong>⋯</strong> su un pad: scorciatoia, ritaglio, nome, loop, elimina · trascina un pad per riordinare (sui touch screen, tienilo premuto prima)',
       playTitle: 'Riproduci (trascina per riordinare)',
       assignTitle: 'Assegna una scorciatoia da tastiera',
       trimTitle: 'Ritaglia questo suono',
@@ -159,7 +159,7 @@ const LANGUAGES = {
       emptyState:
         'Todavía no hay sonidos. Pulsa <strong>Grabar</strong> (o la tecla <kbd>R</kbd>) para crear uno, o importa un archivo de audio o una soundboard exportada.',
       footer:
-        '<kbd>R</kbd> iniciar/detener grabación · <kbd>Esc</kbd> detener todos los sonidos · <strong>⋯</strong> en un pad: atajo, recorte, nombre, bucle, eliminar · arrastra un pad para reordenar',
+        '<kbd>R</kbd> iniciar/detener grabación · <kbd>Esc</kbd> detener todos los sonidos · <strong>⋯</strong> en un pad: atajo, recorte, nombre, bucle, eliminar · arrastra un pad para reordenar (en pantallas táctiles, mantenlo pulsado antes)',
       playTitle: 'Reproducir (arrastra para reordenar)',
       assignTitle: 'Asignar un atajo de teclado',
       trimTitle: 'Recortar este sonido',
@@ -222,7 +222,7 @@ const LANGUAGES = {
       emptyState:
         'Aucun son pour l’instant. Appuyez sur <strong>Enregistrer</strong> (ou la touche <kbd>R</kbd>) pour en créer un, ou importez un fichier audio ou une soundboard exportée.',
       footer:
-        '<kbd>R</kbd> démarrer/arrêter l’enregistrement · <kbd>Esc</kbd> arrêter tous les sons · <strong>⋯</strong> sur un pad : raccourci, rognage, nom, boucle, suppression · faites glisser un pad pour réorganiser',
+        '<kbd>R</kbd> démarrer/arrêter l’enregistrement · <kbd>Esc</kbd> arrêter tous les sons · <strong>⋯</strong> sur un pad : raccourci, rognage, nom, boucle, suppression · faites glisser un pad pour réorganiser (sur écran tactile, appuyez longuement d’abord)',
       playTitle: 'Lire (glisser pour réorganiser)',
       assignTitle: 'Attribuer un raccourci clavier',
       trimTitle: 'Rogner ce son',
@@ -285,7 +285,7 @@ const LANGUAGES = {
       emptyState:
         'Noch keine Sounds. Drücke <strong>Aufnehmen</strong> (oder die Taste <kbd>R</kbd>), um einen zu erstellen, oder importiere eine Audiodatei oder ein exportiertes Soundboard.',
       footer:
-        '<kbd>R</kbd> Aufnahme starten/stoppen · <kbd>Esc</kbd> alle Sounds stoppen · <strong>⋯</strong> auf einem Pad: Tastenkürzel, Zuschneiden, Name, Loop, Löschen · Pad ziehen, um die Reihenfolge zu ändern',
+        '<kbd>R</kbd> Aufnahme starten/stoppen · <kbd>Esc</kbd> alle Sounds stoppen · <strong>⋯</strong> auf einem Pad: Tastenkürzel, Zuschneiden, Name, Loop, Löschen · Pad ziehen, um die Reihenfolge zu ändern (auf Touchscreens erst lange drücken)',
       playTitle: 'Abspielen (ziehen zum Verschieben)',
       assignTitle: 'Tastenkürzel zuweisen',
       trimTitle: 'Diesen Sound zuschneiden',
@@ -348,7 +348,7 @@ const LANGUAGES = {
       emptyState:
         'Ainda não há sons. Pressione <strong>Gravar</strong> (ou a tecla <kbd>R</kbd>) para criar um, ou importe um arquivo de áudio ou uma soundboard exportada.',
       footer:
-        '<kbd>R</kbd> iniciar/parar gravação · <kbd>Esc</kbd> parar todos os sons · <strong>⋯</strong> em um pad: atalho, recorte, nome, loop, excluir · arraste um pad para reordenar',
+        '<kbd>R</kbd> iniciar/parar gravação · <kbd>Esc</kbd> parar todos os sons · <strong>⋯</strong> em um pad: atalho, recorte, nome, loop, excluir · arraste um pad para reordenar (em telas sensíveis ao toque, segure-o antes)',
       playTitle: 'Tocar (arraste para reordenar)',
       assignTitle: 'Atribuir um atalho de teclado',
       trimTitle: 'Recortar este som',
@@ -411,7 +411,7 @@ const LANGUAGES = {
       emptyState:
         'Звуков пока нет. Нажмите <strong>Запись</strong> (или клавишу <kbd>R</kbd>), чтобы создать звук, или импортируйте аудиофайл либо экспортированную звуковую панель.',
       footer:
-        '<kbd>R</kbd> начать/остановить запись · <kbd>Esc</kbd> остановить все звуки · <strong>⋯</strong> на кнопке: клавиша, обрезка, имя, цикл, удаление · перетащите кнопку, чтобы изменить порядок',
+        '<kbd>R</kbd> начать/остановить запись · <kbd>Esc</kbd> остановить все звуки · <strong>⋯</strong> на кнопке: клавиша, обрезка, имя, цикл, удаление · перетащите кнопку, чтобы изменить порядок (на сенсорных экранах сначала удерживайте её)',
       playTitle: 'Воспроизвести (перетащите, чтобы переместить)',
       assignTitle: 'Назначить клавишу',
       trimTitle: 'Обрезать этот звук',
@@ -473,7 +473,7 @@ const LANGUAGES = {
       languageTitle: '语言',
       emptyState: '还没有声音。按 <strong>录音</strong>（或 <kbd>R</kbd> 键）创建一个，或导入音频文件或已导出的音效板。',
       footer:
-        '<kbd>R</kbd> 开始/停止录音 · <kbd>Esc</kbd> 停止所有声音 · 按钮上的 <strong>⋯</strong>：快捷键、剪裁、重命名、循环、删除 · 拖动按钮可调整顺序',
+        '<kbd>R</kbd> 开始/停止录音 · <kbd>Esc</kbd> 停止所有声音 · 按钮上的 <strong>⋯</strong>：快捷键、剪裁、重命名、循环、删除 · 拖动按钮可调整顺序（触屏上先长按）',
       playTitle: '播放（拖动可调整顺序）',
       assignTitle: '设置键盘快捷键',
       trimTitle: '剪裁此声音',
@@ -536,7 +536,7 @@ const LANGUAGES = {
       emptyState:
         'まだサウンドがありません。<strong>録音</strong>（または <kbd>R</kbd> キー）で作成するか、音声ファイルやエクスポートしたサウンドボードをインポートしてください。',
       footer:
-        '<kbd>R</kbd> 録音の開始/停止 · <kbd>Esc</kbd> すべてのサウンドを停止 · パッドの <strong>⋯</strong>：ショートカット、トリム、名前、ループ、削除 · パッドをドラッグして並べ替え',
+        '<kbd>R</kbd> 録音の開始/停止 · <kbd>Esc</kbd> すべてのサウンドを停止 · パッドの <strong>⋯</strong>：ショートカット、トリム、名前、ループ、削除 · パッドをドラッグして並べ替え（タッチ画面では先に長押し）',
       playTitle: '再生（ドラッグで並べ替え）',
       assignTitle: 'キーボードショートカットを割り当て',
       trimTitle: 'このサウンドをトリム',
@@ -599,7 +599,7 @@ const LANGUAGES = {
       emptyState:
         '아직 소리가 없습니다. <strong>녹음</strong>(또는 <kbd>R</kbd> 키)을 눌러 만들거나, 오디오 파일이나 내보낸 사운드보드를 가져오세요.',
       footer:
-        '<kbd>R</kbd> 녹음 시작/정지 · <kbd>Esc</kbd> 모든 소리 정지 · 패드의 <strong>⋯</strong>: 단축키, 자르기, 이름, 반복, 삭제 · 패드를 끌어서 순서 변경',
+        '<kbd>R</kbd> 녹음 시작/정지 · <kbd>Esc</kbd> 모든 소리 정지 · 패드의 <strong>⋯</strong>: 단축키, 자르기, 이름, 반복, 삭제 · 패드를 끌어서 순서 변경 (터치스크린에서는 먼저 길게 누르기)',
       playTitle: '재생 (끌어서 순서 변경)',
       assignTitle: '키보드 단축키 지정',
       trimTitle: '이 소리 자르기',
@@ -662,7 +662,7 @@ const LANGUAGES = {
       emptyState:
         'अभी कोई ध्वनि नहीं है। नई ध्वनि बनाने के लिए <strong>रिकॉर्ड</strong> (या <kbd>R</kbd> कुंजी) दबाएँ, या कोई ऑडियो फ़ाइल या निर्यात किया गया साउंडबोर्ड आयात करें।',
       footer:
-        '<kbd>R</kbd> रिकॉर्डिंग शुरू/बंद · <kbd>Esc</kbd> सभी ध्वनियाँ रोकें · पैड पर <strong>⋯</strong>: शॉर्टकट, ट्रिम, नाम, लूप, हटाएँ · क्रम बदलने के लिए पैड को खींचें',
+        '<kbd>R</kbd> रिकॉर्डिंग शुरू/बंद · <kbd>Esc</kbd> सभी ध्वनियाँ रोकें · पैड पर <strong>⋯</strong>: शॉर्टकट, ट्रिम, नाम, लूप, हटाएँ · क्रम बदलने के लिए पैड को खींचें (टच स्क्रीन पर पहले उसे दबाकर रखें)',
       playTitle: 'चलाएँ (क्रम बदलने के लिए खींचें)',
       assignTitle: 'कीबोर्ड शॉर्टकट दें',
       trimTitle: 'इस ध्वनि को ट्रिम करें',
@@ -726,7 +726,7 @@ const LANGUAGES = {
       emptyState:
         'لا توجد أصوات بعد. اضغط <strong>تسجيل</strong> (أو المفتاح <kbd>R</kbd>) لإنشاء صوت، أو استورد ملفًا صوتيًا أو لوحة أصوات مُصدَّرة.',
       footer:
-        '<kbd>R</kbd> بدء/إيقاف التسجيل · <kbd>Esc</kbd> إيقاف كل الأصوات · <strong>⋯</strong> على الزر: اختصار، قص، اسم، تكرار، حذف · اسحب زرًا لتغيير الترتيب',
+        '<kbd>R</kbd> بدء/إيقاف التسجيل · <kbd>Esc</kbd> إيقاف كل الأصوات · <strong>⋯</strong> على الزر: اختصار، قص، اسم، تكرار، حذف · اسحب زرًا لتغيير الترتيب (على الشاشات اللمسية اضغط عليه مطولًا أولًا)',
       playTitle: 'تشغيل (اسحب لتغيير الترتيب)',
       assignTitle: 'تعيين اختصار لوحة المفاتيح',
       trimTitle: 'قص هذا الصوت',

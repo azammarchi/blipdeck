@@ -326,8 +326,10 @@ kbd {
 }
 #languageButton .chevron { width: 14px; height: 14px; color: var(--muted); }
 
-/* Long-press reordering */
-.pad .play { touch-action: none; -webkit-touch-callout: none; }
+/* Reordering */
+/* Swipes scroll the page (a long press lifts a pad instead); no callout or
+   text selection on a long press. */
+.pad .play { touch-action: pan-x pan-y; -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .pad.drag-placeholder { opacity: 0.3; }
 .drag-ghost {
   position: fixed;

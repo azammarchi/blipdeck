@@ -60,7 +60,7 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, delete |
 | Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels). Digits on the top row and on the numeric keypad count as the same key |
 | Trim | **⋯ → Trim this sound**: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
-| Reorder | Drag a pad where you want (a click without moving plays it) |
+| Reorder | Drag a pad where you want (a click without moving plays it). On touch screens, long-press the pad first: a quick swipe scrolls the page |
 | Stop everything | **Stop all** or `Esc` |
 | Change language | The flag menu in the top bar |
 
