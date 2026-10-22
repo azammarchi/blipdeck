@@ -1267,6 +1267,8 @@ async function migrateLegacyData() {
     if (!all.length) await seedSamples(IS_LOCAL_SERVER ? ['Ding'] : Object.keys(SAMPLES));
   }
   updateEmptyState();
+  // Startup is over (pads loaded or seeded): the test suite waits for this.
+  document.documentElement.dataset.ready = 'true';
 })();
 
 // ---------------------------------------------------------------------------

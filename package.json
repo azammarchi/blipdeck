@@ -4,7 +4,12 @@
   "description": "A local soundboard in your browser: record sounds, trim them and play them with buttons or keyboard shortcuts.",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "test": "playwright test",
+    "test:install": "playwright install webkit chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   },
   "license": "MIT"
 }

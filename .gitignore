@@ -15,3 +15,7 @@ soundpad-*.json
 
 # Local Claude Code settings
 .claude/
+
+# Playwright output
+test-results/
+playwright-report/
