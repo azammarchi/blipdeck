@@ -1,68 +1,70 @@
 <!doctype html>
-<html lang="it">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Soundpad</title>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎛️</text></svg>">
+  <title>Blipdeck</title>
+  <meta name="description" content="Record sounds, trim them and play them with buttons or keyboard shortcuts. Runs entirely in your browser.">
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header>
-    <h1>Soundpad</h1>
+    <h1 class="brand"><img src="logo.svg" alt="" width="34" height="34">Blipdeck</h1>
     <div class="toolbar">
-      <button id="recordBtn" class="record" title="Registra (R)">
-        <span class="dot"></span><span id="recordLabel">Registra</span>
+      <button id="recordBtn" class="record" data-i18n-title="recordTitle">
+        <span class="dot"></span><span id="recordLabel" data-i18n="record">Record</span>
       </button>
       <span id="timer" class="timer" hidden>0:00</span>
-      <label class="button secondary" title="Importa file audio o una soundboard esportata (.json)">
-        Importa
+      <label class="button secondary" data-i18n-title="importTitle">
+        <span data-i18n="import">Import</span>
         <input id="importInput" type="file" accept="audio/*,.json,application/json" multiple hidden>
       </label>
-      <button id="exportBtn" class="secondary" title="Esporta tutti i suoni con nomi e tasti">Esporta</button>
-      <button id="stopAllBtn" class="secondary" title="Ferma tutto (Esc)">Ferma tutto</button>
-      <label class="volume" title="Volume generale">
+      <button id="exportBtn" class="secondary" data-i18n="export" data-i18n-title="exportTitle">Export</button>
+      <button id="stopAllBtn" class="secondary" data-i18n="stopAll" data-i18n-title="stopAllTitle">Stop all</button>
+      <label class="volume" data-i18n-title="volumeTitle">
         🔊 <input id="masterVolume" type="range" min="0" max="1" step="0.01" value="1">
+      </label>
+      <label class="language" data-i18n-title="languageTitle">
+        🌐 <select id="languageSelect"></select>
       </label>
     </div>
   </header>
 
   <main>
-    <p id="emptyState" class="empty">
-      Nessun suono ancora. Premi <strong>Registra</strong> (o il tasto <kbd>R</kbd>) per crearne uno,
-      oppure importa un file audio o una soundboard esportata.
-    </p>
+    <p id="emptyState" class="empty" data-i18n-html="emptyState"></p>
     <div id="grid" class="grid"></div>
   </main>
 
   <footer>
-    <kbd>R</kbd> avvia/ferma registrazione · <kbd>Esc</kbd> ferma tutti i suoni ·
-    clicca <em>Tasto</em> su un pad per assegnargli una scorciatoia, <em>Taglia</em> per ritagliarlo
+    <span data-i18n-html="footer"></span>
+    <a class="repo-link" href="https://github.com/azammarchi/blipdeck" target="_blank" rel="noopener">GitHub</a>
   </footer>
 
   <template id="padTemplate">
     <div class="pad">
-      <button class="play" title="Riproduci">
+      <button class="play" data-i18n-title="playTitle">
         <span class="key"></span>
         <span class="name"></span>
         <span class="duration"></span>
         <span class="progress"></span>
       </button>
       <div class="actions">
-        <button class="assign" title="Assegna scorciatoia">Tasto</button>
-        <button class="trim" title="Ritaglia">Taglia</button>
-        <button class="rename" title="Rinomina">Nome</button>
-        <button class="loop" title="Ripeti in loop">Loop</button>
-        <button class="delete danger" title="Elimina">✕</button>
+        <button class="assign" data-i18n="assign" data-i18n-title="assignTitle">Key</button>
+        <button class="trim" data-i18n="trim" data-i18n-title="trimTitle">Trim</button>
+        <button class="rename" data-i18n="rename" data-i18n-title="renameTitle">Name</button>
+        <button class="loop" data-i18n="loop" data-i18n-title="loopTitle">Loop</button>
+        <button class="delete danger" data-i18n-title="deleteTitle">✕</button>
       </div>
     </div>
   </template>
 
-  <dialog id="trimDialog" class="trim-dialog">
+  <dialog id="trimDialog" class="modal trim-dialog">
     <form method="dialog">
-      <h2>Ritaglia <span id="trimName"></span></h2>
-      <p class="hint">Trascina le maniglie per scegliere la parte da tenere.</p>
-      <div class="wave-wrap">
+      <h2 id="trimHeading"></h2>
+      <p class="hint" data-i18n="trimHint"></p>
+      <!-- Time always runs left to right, even in right-to-left languages. -->
+      <div class="wave-wrap" dir="ltr">
         <canvas id="trimCanvas" width="1200" height="240"></canvas>
         <div id="trimShadeStart" class="shade"></div>
         <div id="trimShadeEnd" class="shade"></div>
@@ -70,21 +72,35 @@
         <div id="trimHandleEnd" class="handle"></div>
         <div id="trimPlayhead" class="playhead" hidden></div>
       </div>
-      <div class="trim-times">
-        <span>Inizio <strong id="trimStartLabel">0.00s</strong></span>
-        <span>Durata <strong id="trimLengthLabel">0.00s</strong></span>
-        <span>Fine <strong id="trimEndLabel">0.00s</strong></span>
+      <div class="trim-times" dir="ltr">
+        <span><span data-i18n="trimStart"></span> <strong id="trimStartLabel">0.00s</strong></span>
+        <span><span data-i18n="trimLength"></span> <strong id="trimLengthLabel">0.00s</strong></span>
+        <span><span data-i18n="trimEnd"></span> <strong id="trimEndLabel">0.00s</strong></span>
       </div>
-      <div class="trim-buttons">
-        <button type="button" id="trimPreviewBtn" class="secondary">▶ Anteprima</button>
-        <button type="button" id="trimAutoBtn" class="secondary" title="Taglia i silenzi all'inizio e alla fine">Togli silenzi</button>
+      <div class="dialog-buttons">
+        <button type="button" id="trimPreviewBtn" class="secondary" data-i18n="preview"></button>
+        <button type="button" id="trimAutoBtn" class="secondary" data-i18n="removeSilence" data-i18n-title="removeSilenceTitle"></button>
         <span class="spacer"></span>
-        <button value="cancel" class="secondary">Annulla</button>
-        <button type="button" id="trimSaveBtn">Salva</button>
+        <button value="cancel" class="secondary" data-i18n="cancel"></button>
+        <button type="button" id="trimSaveBtn" data-i18n="save"></button>
       </div>
     </form>
   </dialog>
 
+  <dialog id="importDialog" class="modal import-dialog">
+    <form method="dialog">
+      <h2 id="importHeading"></h2>
+      <p data-i18n="importQuestion"></p>
+      <div class="dialog-buttons">
+        <button value="cancel" class="secondary" data-i18n="cancel"></button>
+        <span class="spacer"></span>
+        <button value="add" class="secondary" data-i18n="importAdd"></button>
+        <button value="replace" data-i18n="importReplace"></button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

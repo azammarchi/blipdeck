@@ -1,8 +1,9 @@
 node_modules/
 .DS_Store
 
-# I suoni dell'utente vivono nel browser (IndexedDB), mai nel repo.
-# Escludiamo anche eventuali export o file audio salvati nella cartella.
+# Your sounds live in the browser (IndexedDB), never in the repo.
+# Exports and audio files saved in the project folder are excluded too.
+blipdeck-*.json
 soundpad-*.json
 *.wav
 *.mp3

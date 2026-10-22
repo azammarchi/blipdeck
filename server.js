@@ -1,5 +1,5 @@
-// Server statico minimale, senza dipendenze. Il microfono funziona solo in un
-// contesto sicuro: http://localhost lo è, quindi basta servire i file da qui.
+// Minimal static server with no dependencies. The microphone only works in a
+// secure context: http://localhost is one, so serving the files from here is enough.
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
@@ -14,9 +14,9 @@ const TYPES = {
   '.svg': 'image/svg+xml',
 };
 
-// Ogni scheda aperta tiene una connessione su /events: quando l'ultima si
-// chiude (e non si riapre entro il periodo di grazia, che copre i ricaricamenti)
-// il server si ferma. Si disattiva con KEEP_RUNNING=1.
+// Every open tab keeps a connection on /events: when the last one closes (and
+// doesn't come back within the grace period, which covers page reloads) the
+// server stops. Disable with KEEP_RUNNING=1.
 const SHUTDOWN_GRACE_MS = 3000;
 const clients = new Set();
 let shutdownTimer = null;
@@ -36,7 +36,7 @@ function handleEvents(req, res) {
     clients.delete(res);
     if (clients.size === 0 && !process.env.KEEP_RUNNING) {
       shutdownTimer = setTimeout(() => {
-        console.log('Finestra chiusa, arresto Soundpad.');
+        console.log('Window closed, stopping Blipdeck.');
         process.exit(0);
       }, SHUTDOWN_GRACE_MS);
     }
@@ -64,11 +64,11 @@ const server = http.createServer((req, res) => {
   });
 });
 
-// Se la porta è occupata proviamo le successive, invece di andare in crash.
+// If the port is taken, try the next ones instead of crashing.
 function listen(port, attemptsLeft) {
   server.once('error', (err) => {
     if (err.code === 'EADDRINUSE' && attemptsLeft > 0) {
-      console.log(`Porta ${port} occupata, provo la ${port + 1}...`);
+      console.log(`Port ${port} is in use, trying ${port + 1}...`);
       listen(port + 1, attemptsLeft - 1);
     } else {
       console.error(err.message);
@@ -80,18 +80,18 @@ function listen(port, attemptsLeft) {
 
 server.on('listening', () => {
   const url = `http://localhost:${server.address().port}`;
-  console.log(`Soundpad in ascolto su ${url}`);
+  console.log(`Blipdeck is running at ${url}`);
   if (!process.env.NO_OPEN) openBrowser(url);
 });
 
-// Apre l'URL nel browser predefinito. Si disattiva con NO_OPEN=1.
+// Opens the URL in the default browser. Disable with NO_OPEN=1.
 function openBrowser(url) {
   const command =
     process.platform === 'darwin' ? `open "${url}"`
     : process.platform === 'win32' ? `start "" "${url}"`
     : `xdg-open "${url}"`;
   exec(command, (err) => {
-    if (err) console.log(`Apri ${url} nel browser.`);
+    if (err) console.log(`Open ${url} in your browser.`);
   });
 }
 

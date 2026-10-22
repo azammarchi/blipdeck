@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Blipdeck">
+  <defs>
+    <linearGradient id="bd-tile" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a2f45"/>
+      <stop offset="1" stop-color="#15171f"/>
+    </linearGradient>
+    <linearGradient id="bd-shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".28"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="30" fill="url(#bd-tile)"/>
+  <rect x="1.5" y="1.5" width="125" height="125" rx="28.5" fill="none" stroke="#fff" stroke-opacity=".08" stroke-width="3"/>
+
+  <!-- four pads -->
+  <rect x="20" y="20" width="41" height="41" rx="11" fill="#6c8cff"/>
+  <rect x="67" y="20" width="41" height="41" rx="11" fill="#ff7a59"/>
+  <rect x="20" y="67" width="41" height="41" rx="11" fill="#2ec4a6"/>
+  <rect x="67" y="67" width="41" height="41" rx="11" fill="#f5b942"/>
+  <rect x="20" y="20" width="88" height="88" rx="11" fill="url(#bd-shine)" opacity=".6"/>
+
+  <!-- the "blip": one short spike of sound on the first pad -->
+  <path d="M26 41.5h8.5l3.5-7 5 15 4.5-17 3.5 9h4" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

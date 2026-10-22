@@ -1,10 +1,12 @@
 'use strict';
 
 // ---------------------------------------------------------------------------
-// Storage: i suoni (blob audio + metadati) vivono in IndexedDB nel browser.
+// Storage: sounds (audio blob + metadata) live in the browser's IndexedDB.
 // ---------------------------------------------------------------------------
-const DB_NAME = 'soundpad';
+const DB_NAME = 'blipdeck';
 const STORE = 'sounds';
+// Before the rename to Blipdeck, data was saved under "soundpad" names.
+const LEGACY_PREFIX = 'soundpad';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -34,10 +36,16 @@ const db = {
 };
 
 // ---------------------------------------------------------------------------
-// Stato
+// State
 // ---------------------------------------------------------------------------
 const COLORS = ['#6c8cff', '#ff7a59', '#2ec4a6', '#c86cff', '#f5b942', '#ff5c8a', '#4cc3ff', '#8bd450'];
 const RESERVED_CODES = new Set(['KeyR', 'Escape']);
+const VOLUME_KEY = 'blipdeck.volume';
+const LANGUAGE_KEY = 'blipdeck.language';
+const SEEDED_KEY = 'blipdeck.seeded';
+
+// Served by server.js on this machine, or as the online demo (GitHub Pages)?
+const IS_LOCAL_SERVER = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
 
 const sounds = new Map(); // id -> { sound, audio, url, el }
 let assigningId = null;
@@ -56,12 +64,12 @@ function formatTime(seconds) {
 
 function keyLabel(key) {
   if (!key) return '';
-  if (key === ' ') return 'Spazio';
+  if (key === ' ') return t('spaceKey');
   return key.length === 1 ? key.toUpperCase() : key;
 }
 
-// I pad mai spostati non hanno `order` e restano in ordine di creazione, dopo
-// quelli riordinati (che hanno order = posizione 0, 1, 2...).
+// Pads that were never moved have no `order` and stay in creation order,
+// after the reordered ones (whose order is their position 0, 1, 2...).
 function byOrder(a, b) {
   return (a.order ?? a.createdAt) - (b.order ?? b.createdAt);
 }
@@ -70,8 +78,22 @@ function nextColor() {
   return COLORS[sounds.size % COLORS.length];
 }
 
+function readSetting(key) {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSetting(key, value) {
+  try {
+    localStorage.setItem(key, value);
+  } catch {}
+}
+
 // ---------------------------------------------------------------------------
-// Pad
+// Pads
 // ---------------------------------------------------------------------------
 function addPad(sound) {
   const url = URL.createObjectURL(sound.blob);
@@ -103,8 +125,8 @@ function addPad(sound) {
     el.querySelector('.progress').style.width = '0';
   });
   audio.addEventListener('loadedmetadata', () => {
-    // I file webm registrati da Chrome riportano durata Infinity: in quel caso
-    // teniamo quella misurata durante la registrazione.
+    // WebM files recorded by Chrome report an Infinity duration: in that case
+    // we keep the one measured while recording.
     if (Number.isFinite(audio.duration) && !sound.duration) {
       sound.duration = audio.duration;
       renderPad(entry);
@@ -133,7 +155,8 @@ function tickProgress(entry) {
   requestAnimationFrame(() => tickProgress(entry));
 }
 
-// Premere un pad lo fa ripartire da capo; se è in loop e sta suonando, lo ferma.
+// Pressing a pad restarts it from the beginning; if it is looping and
+// currently playing, pressing it stops it.
 function trigger(id) {
   const { audio, sound } = sounds.get(id);
   if (sound.loop && !audio.paused) {
@@ -142,7 +165,7 @@ function trigger(id) {
     return;
   }
   audio.currentTime = 0;
-  audio.play().catch((err) => console.error('Riproduzione fallita', err));
+  audio.play().catch((err) => console.error('Playback failed', err));
 }
 
 function stopAll() {
@@ -155,7 +178,7 @@ function stopAll() {
 
 async function rename(id) {
   const entry = sounds.get(id);
-  const name = prompt('Nome del suono', entry.sound.name);
+  const name = prompt(t('renamePrompt'), entry.sound.name);
   if (name === null || !name.trim()) return;
   entry.sound.name = name.trim();
   await db.put(entry.sound);
@@ -172,7 +195,7 @@ async function toggleLoop(id) {
 
 async function removePad(id) {
   const entry = sounds.get(id);
-  if (!confirm(`Eliminare "${entry.sound.name}"?`)) return;
+  if (!confirm(t('deleteConfirm', { name: entry.sound.name }))) return;
   entry.audio.pause();
   URL.revokeObjectURL(entry.url);
   entry.el.remove();
@@ -200,11 +223,11 @@ async function assignKey(event) {
     entry.sound.code = null;
     entry.sound.key = null;
   } else if (RESERVED_CODES.has(event.code)) {
-    alert(`Il tasto ${keyLabel(event.key)} è riservato.`);
+    alert(t('keyReserved', { key: keyLabel(event.key) }));
     renderPad(entry);
     return;
   } else {
-    // Un tasto può essere legato a un solo suono: lo togliamo agli altri.
+    // A key can be bound to one sound only: take it away from the others.
     for (const other of sounds.values()) {
       if (other !== entry && other.sound.code === event.code) {
         other.sound.code = null;
@@ -241,16 +264,16 @@ async function createSound(blob, name, duration) {
 }
 
 // ---------------------------------------------------------------------------
-// Riordino: tenendo premuto un pad lo si "solleva" e lo si trascina in un'altra
-// posizione. Un clic normale continua a riprodurre il suono.
+// Reordering: holding a pad down "lifts" it so it can be dragged to another
+// position. A normal click still plays the sound.
 // ---------------------------------------------------------------------------
 const LONG_PRESS_MS = 350;
-const MOVE_TOLERANCE = 8; // px: se ci si muove prima, non è una pressione lunga
+const MOVE_TOLERANCE = 8; // px: moving more than this first means it's not a long press
 let suppressClick = false;
 
-// Movimenti e rilascio si ascoltano sulla finestra e non sul pad: spostare il
-// pad nella griglia lo stacca e riattacca al DOM, e questo farebbe perdere la
-// cattura del puntatore bloccando il trascinamento a metà.
+// Moves and release are listened for on the window, not on the pad: moving the
+// pad inside the grid detaches and re-attaches it to the DOM, which would drop
+// pointer capture and freeze the drag halfway.
 function enableReorder(el, handle) {
   handle.addEventListener('pointerdown', (e) => {
     if (e.button !== 0) return;
@@ -270,7 +293,7 @@ function enableReorder(el, handle) {
       lastX = ev.clientX;
       lastY = ev.clientY;
       if (timer && Math.hypot(lastX - startX, lastY - startY) > MOVE_TOLERANCE) {
-        // Si è mosso prima della pressione lunga: è un clic normale.
+        // It moved before the long press kicked in: treat it as a normal click.
         stop();
         return;
       }
@@ -285,7 +308,7 @@ function enableReorder(el, handle) {
       const wasDragging = !!drag;
       stop();
       if (!wasDragging) return;
-      // Il click che segue il rilascio non deve far partire il suono.
+      // The click that follows the release must not play the sound.
       suppressClick = true;
       setTimeout(() => (suppressClick = false), 0);
     };
@@ -351,11 +374,11 @@ async function finishDrag(drag) {
 }
 
 // ---------------------------------------------------------------------------
-// Ritaglio: l'audio viene decodificato, si sceglie inizio/fine sulla forma
-// d'onda e la parte tenuta viene salvata come WAV al posto dell'originale.
+// Trimming: the audio is decoded, start/end are picked on the waveform and the
+// kept part is saved as WAV in place of the original.
 // ---------------------------------------------------------------------------
-const MIN_TRIM = 0.05; // secondi
-const FADE = 0.005; // dissolvenza ai bordi del taglio, evita i "click"
+const MIN_TRIM = 0.05; // seconds
+const FADE = 0.005; // fade at the cut edges, avoids audible clicks
 
 const trimDialog = $('#trimDialog');
 const wave = $('.wave-wrap');
@@ -371,14 +394,18 @@ async function openTrim(id) {
   try {
     buffer = await audioCtx.decodeAudioData(await entry.sound.blob.arrayBuffer());
   } catch (err) {
-    alert(`Impossibile leggere l'audio: ${err.message}`);
+    alert(t('audioReadError', { error: err.message }));
     return;
   }
   Object.assign(trim, { entry, buffer, start: 0, end: buffer.duration });
-  $('#trimName').textContent = `"${entry.sound.name}"`;
+  renderTrimHeading();
   trimDialog.showModal();
   drawWaveform();
   renderTrim();
+}
+
+function renderTrimHeading() {
+  if (trim.entry) $('#trimHeading').textContent = t('trimHeading', { name: trim.entry.sound.name });
 }
 
 function drawWaveform() {
@@ -426,23 +453,29 @@ function timeAt(clientX) {
   return ratio * trim.buffer.duration;
 }
 
-function moveHandle(t) {
+function moveHandle(time) {
   stopPreview();
-  if (dragging === 'start') trim.start = Math.max(0, Math.min(t, trim.end - MIN_TRIM));
-  else trim.end = Math.min(trim.buffer.duration, Math.max(t, trim.start + MIN_TRIM));
+  if (dragging === 'start') trim.start = Math.max(0, Math.min(time, trim.end - MIN_TRIM));
+  else trim.end = Math.min(trim.buffer.duration, Math.max(time, trim.start + MIN_TRIM));
   renderTrim();
 }
 
-// Un clic o trascinamento sposta la maniglia più vicina al puntatore.
+// A click or drag moves whichever handle is closest to the pointer.
 wave.addEventListener('pointerdown', (e) => {
-  const t = timeAt(e.clientX);
-  dragging = Math.abs(t - trim.start) <= Math.abs(t - trim.end) ? 'start' : 'end';
+  const time = timeAt(e.clientX);
+  dragging = Math.abs(time - trim.start) <= Math.abs(time - trim.end) ? 'start' : 'end';
   wave.setPointerCapture(e.pointerId);
-  moveHandle(t);
+  moveHandle(time);
 });
 wave.addEventListener('pointermove', (e) => dragging && moveHandle(timeAt(e.clientX)));
 wave.addEventListener('pointerup', () => (dragging = null));
 wave.addEventListener('pointercancel', () => (dragging = null));
+
+// Switches a data-i18n element to another key and re-translates it.
+function setLabel(el, key) {
+  el.dataset.i18n = key;
+  el.textContent = t(key);
+}
 
 function startPreview() {
   stopPreview();
@@ -455,12 +488,12 @@ function startPreview() {
   source.start(0, trim.start, trim.end - trim.start);
   source.onended = () => trim.source === source && stopPreview();
   trim.source = source;
-  $('#trimPreviewBtn').textContent = '■ Stop';
+  setLabel($('#trimPreviewBtn'), 'previewStop');
   const playhead = $('#trimPlayhead');
   playhead.hidden = false;
   const tick = () => {
-    const t = trim.start + (audioCtx.currentTime - startedAt);
-    playhead.style.left = `${(Math.min(t, trim.end) / trim.buffer.duration) * 100}%`;
+    const time = trim.start + (audioCtx.currentTime - startedAt);
+    playhead.style.left = `${(Math.min(time, trim.end) / trim.buffer.duration) * 100}%`;
     trim.raf = requestAnimationFrame(tick);
   };
   tick();
@@ -474,12 +507,12 @@ function stopPreview() {
   }
   cancelAnimationFrame(trim.raf);
   $('#trimPlayhead').hidden = true;
-  $('#trimPreviewBtn').textContent = '▶ Anteprima';
+  setLabel($('#trimPreviewBtn'), 'preview');
 }
 
-// Toglie il silenzio iniziale e finale: soglia relativa al picco del suono.
-// Restituisce {start, end} senza il silenzio iniziale e finale, oppure null
-// se il suono è praticamente muto (in quel caso non c'è niente da tagliare).
+// Returns {start, end} without the leading and trailing silence, or null if
+// the sound is practically mute (then there is nothing to cut). The threshold
+// is relative to the sound's peak.
 function silenceBounds(buffer) {
   const channels = [...Array(buffer.numberOfChannels)].map((_, c) => buffer.getChannelData(c));
   const level = (i) => {
@@ -511,8 +544,8 @@ function autoTrim() {
   renderTrim();
 }
 
-// Dopo una registrazione: toglie i silenzi ai bordi. Se l'audio non si riesce
-// a decodificare o non c'è niente da togliere, tiene la registrazione com'è.
+// After a recording: removes the silence at the edges. If the audio can't be
+// decoded or there is nothing to remove, the recording is kept as it is.
 async function trimRecording(blob, duration) {
   try {
     audioCtx ||= new AudioContext();
@@ -521,7 +554,7 @@ async function trimRecording(blob, duration) {
     if (!bounds || bounds.end - bounds.start > buffer.duration - 0.02) return { blob, duration };
     return { blob: encodeWav(buffer, bounds.start, bounds.end), duration: bounds.end - bounds.start };
   } catch (err) {
-    console.warn('Ritaglio automatico non riuscito', err);
+    console.warn('Automatic trim failed', err);
     return { blob, duration };
   }
 }
@@ -586,10 +619,12 @@ trimDialog.addEventListener('close', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Export / import: un unico file JSON con tutti i suoni (audio in base64),
-// nomi, tasti, colori e loop. Serve per backup o per spostarli su un altro PC.
+// Export / import: a single JSON file with every sound (audio as base64),
+// names, keys, colors and loop. Used for backups or moving to another computer.
 // ---------------------------------------------------------------------------
-const BANK_FORMAT = 'soundpad-bank';
+const BANK_FORMAT = 'blipdeck-bank';
+const LEGACY_BANK_FORMAT = 'soundpad-bank';
+const importDialog = $('#importDialog');
 
 function blobToDataUrl(blob) {
   return new Promise((resolve, reject) => {
@@ -602,7 +637,7 @@ function blobToDataUrl(blob) {
 
 async function exportBank() {
   if (!sounds.size) {
-    alert('Non ci sono suoni da esportare.');
+    alert(t('nothingToExport'));
     return;
   }
   const list = [...sounds.values()].map((e) => e.sound).sort(byOrder);
@@ -617,9 +652,20 @@ async function exportBank() {
   const url = URL.createObjectURL(new Blob([JSON.stringify(bank)], { type: 'application/json' }));
   const link = document.createElement('a');
   link.href = url;
-  link.download = `soundpad-${new Date().toISOString().slice(0, 10)}.json`;
+  link.download = `blipdeck-${new Date().toISOString().slice(0, 10)}.json`;
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+// Asks whether imported sounds replace the current ones or are added to them.
+// Resolves to 'replace', 'add' or 'cancel'.
+function askImportMode(count) {
+  $('#importHeading').textContent = t('importHeading', { count });
+  importDialog.returnValue = 'cancel';
+  importDialog.showModal();
+  return new Promise((resolve) => {
+    importDialog.addEventListener('close', () => resolve(importDialog.returnValue || 'cancel'), { once: true });
+  });
 }
 
 async function importBank(file) {
@@ -627,20 +673,17 @@ async function importBank(file) {
   try {
     bank = JSON.parse(await file.text());
   } catch {
-    alert(`"${file.name}" non è un file JSON valido.`);
+    alert(t('invalidJson', { file: file.name }));
     return;
   }
-  if (bank?.format !== BANK_FORMAT || !Array.isArray(bank.sounds)) {
-    alert(`"${file.name}" non è una soundboard esportata da Soundpad.`);
+  const knownFormat = bank?.format === BANK_FORMAT || bank?.format === LEGACY_BANK_FORMAT;
+  if (!knownFormat || !Array.isArray(bank.sounds)) {
+    alert(t('notABank', { file: file.name }));
     return;
   }
-  const replace =
-    sounds.size > 0 &&
-    confirm(
-      `Importo ${bank.sounds.length} suoni.\n\n` +
-        'OK = sostituisci tutti i suoni attuali\nAnnulla = aggiungili a quelli esistenti',
-    );
-  if (replace) {
+  const mode = sounds.size > 0 ? await askImportMode(bank.sounds.length) : 'add';
+  if (mode === 'cancel') return;
+  if (mode === 'replace') {
     stopAll();
     for (const [id, entry] of sounds) {
       URL.revokeObjectURL(entry.url);
@@ -652,19 +695,19 @@ async function importBank(file) {
   const usedCodes = new Set([...sounds.values()].map((e) => e.sound.code).filter(Boolean));
   for (const item of bank.sounds) {
     const blob = await (await fetch(item.audio)).blob();
-    // In aggiunta, i tasti già usati restano ai suoni esistenti.
+    // When adding, keys already in use stay with the existing sounds.
     const keepKey = item.code && !usedCodes.has(item.code) && !RESERVED_CODES.has(item.code);
     if (keepKey) usedCodes.add(item.code);
     const sound = {
       id: crypto.randomUUID(),
-      name: String(item.name || 'Suono'),
+      name: String(item.name || t('defaultName')),
       blob,
       duration: Number(item.duration) || 0,
       color: item.color || nextColor(),
       code: keepKey ? item.code : null,
       key: keepKey ? item.key : null,
       loop: !!item.loop,
-      createdAt: Date.now() + sounds.size, // mantiene l'ordine del file
+      createdAt: Date.now() + sounds.size, // keeps the file's order
     };
     await db.put(sound);
     addPad(sound);
@@ -673,7 +716,7 @@ async function importBank(file) {
 }
 
 // ---------------------------------------------------------------------------
-// Registrazione
+// Recording
 // ---------------------------------------------------------------------------
 let recorder = null;
 let recordStart = 0;
@@ -688,7 +731,7 @@ async function toggleRecording() {
   try {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
-    alert(`Impossibile accedere al microfono: ${err.message}`);
+    alert(t('micError', { error: err.message }));
     return;
   }
   const chunks = [];
@@ -696,13 +739,13 @@ async function toggleRecording() {
   recorder.ondataavailable = (e) => e.data.size && chunks.push(e.data);
   recorder.onstop = async () => {
     const duration = (performance.now() - recordStart) / 1000;
-    stream.getTracks().forEach((t) => t.stop());
+    stream.getTracks().forEach((track) => track.stop());
     setRecordingUi(false);
     const blob = new Blob(chunks, { type: recorder.mimeType });
     recorder = null;
     if (!blob.size) return;
     const trimmed = await trimRecording(blob, duration);
-    await createSound(trimmed.blob, `Suono ${sounds.size + 1}`, trimmed.duration);
+    await createSound(trimmed.blob, t('soundName', { n: sounds.size + 1 }), trimmed.duration);
   };
   recorder.start();
   recordStart = performance.now();
@@ -711,7 +754,7 @@ async function toggleRecording() {
 
 function setRecordingUi(recording) {
   $('#recordBtn').classList.toggle('recording', recording);
-  $('#recordLabel').textContent = recording ? 'Stop' : 'Registra';
+  setLabel($('#recordLabel'), recording ? 'stop' : 'record');
   const timer = $('#timer');
   timer.hidden = !recording;
   clearInterval(timerHandle);
@@ -719,13 +762,35 @@ function setRecordingUi(recording) {
     timer.textContent = '0:00';
     timerHandle = setInterval(() => {
       const s = Math.floor((performance.now() - recordStart) / 1000);
-      timer.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+      timer.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     }, 250);
   }
 }
 
 // ---------------------------------------------------------------------------
-// Eventi globali
+// Language
+// ---------------------------------------------------------------------------
+const languageSelect = $('#languageSelect');
+
+for (const [code, { name }] of Object.entries(LANGUAGES)) {
+  languageSelect.append(new Option(name, code));
+}
+
+function applyLanguage(code) {
+  languageSelect.value = setLanguage(code);
+  translate(document);
+  translate(template.content);
+  for (const entry of sounds.values()) renderPad(entry);
+  renderTrimHeading();
+}
+
+languageSelect.addEventListener('change', () => {
+  applyLanguage(languageSelect.value);
+  writeSetting(LANGUAGE_KEY, currentLanguage);
+});
+
+// ---------------------------------------------------------------------------
+// Global events
 // ---------------------------------------------------------------------------
 $('#recordBtn').addEventListener('click', toggleRecording);
 $('#stopAllBtn').addEventListener('click', stopAll);
@@ -733,7 +798,7 @@ $('#stopAllBtn').addEventListener('click', stopAll);
 $('#masterVolume').addEventListener('input', (e) => {
   masterVolume = Number(e.target.value);
   for (const { audio } of sounds.values()) audio.volume = masterVolume;
-  try { localStorage.setItem('soundpad.volume', String(masterVolume)); } catch {}
+  writeSetting(VOLUME_KEY, String(masterVolume));
 });
 
 $('#importInput').addEventListener('change', async (e) => {
@@ -751,7 +816,7 @@ $('#exportBtn').addEventListener('click', exportBank);
 
 document.addEventListener('keydown', (e) => {
   if (e.metaKey || e.ctrlKey || e.altKey) return;
-  if (trimDialog.open) return;
+  if (trimDialog.open || importDialog.open) return;
   if (e.target instanceof Element && e.target.closest('input, textarea, select')) return;
 
   if (assigningId) {
@@ -779,81 +844,174 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ---------------------------------------------------------------------------
-// Pad di esempio: al primissimo avvio creiamo un "ding" sintetizzato (nessun
-// file audio nel repo) legato al tasto 1. L'utente può eliminarlo e non torna.
+// Sample pads, synthesized in code (there are no audio files in the repo).
+// On the very first launch the local app gets the "Ding" pad on the 1 key;
+// the online demo gets the whole set on keys 1-8. Once deleted they never
+// come back.
 // ---------------------------------------------------------------------------
-const SEEDED_KEY = 'soundpad.seeded';
+const SAMPLE_RATE = 44100;
 
-async function synthesizeDing() {
-  const rate = 44100;
-  const length = 1.4;
-  const ctx = new OfflineAudioContext(1, Math.ceil(rate * length), rate);
-  const notes = [
-    { freq: 1318.5, at: 0 }, // Mi6
-    { freq: 1046.5, at: 0.18 }, // Do6
-  ];
-  for (const { freq, at } of notes) {
-    for (const [mult, level] of [[1, 0.5], [2.01, 0.12], [3, 0.05]]) {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.frequency.value = freq * mult;
-      gain.gain.setValueAtTime(0.0001, at);
-      gain.gain.exponentialRampToValueAtTime(level, at + 0.01);
-      gain.gain.exponentialRampToValueAtTime(0.0001, at + 1.1);
-      osc.connect(gain).connect(ctx.destination);
-      osc.start(at);
-      osc.stop(at + 1.2);
-    }
+async function render(seconds, build) {
+  const ctx = new OfflineAudioContext(1, Math.ceil(SAMPLE_RATE * seconds), SAMPLE_RATE);
+  build(ctx);
+  return ctx.startRendering();
+}
+
+function envelope(ctx, at, peak, decay) {
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0.0001, at);
+  gain.gain.exponentialRampToValueAtTime(peak, at + 0.005);
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + decay);
+  gain.connect(ctx.destination);
+  return gain;
+}
+
+function tone(ctx, { type = 'sine', freq, to, at = 0, peak = 0.5, decay = 0.3 }) {
+  const osc = ctx.createOscillator();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, at);
+  if (to) osc.frequency.exponentialRampToValueAtTime(to, at + decay);
+  osc.connect(envelope(ctx, at, peak, decay));
+  osc.start(at);
+  osc.stop(at + decay + 0.05);
+}
+
+function noise(ctx, { at = 0, peak = 0.5, decay = 0.2, filter = 'highpass', freq = 1000, sweepTo }) {
+  const buffer = ctx.createBuffer(1, Math.ceil(SAMPLE_RATE * (decay + 0.05)), SAMPLE_RATE);
+  const data = buffer.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
+  const source = ctx.createBufferSource();
+  source.buffer = buffer;
+  const biquad = ctx.createBiquadFilter();
+  biquad.type = filter;
+  biquad.frequency.setValueAtTime(freq, at);
+  if (sweepTo) {
+    biquad.frequency.exponentialRampToValueAtTime(sweepTo, at + decay / 2);
+    biquad.frequency.exponentialRampToValueAtTime(freq, at + decay);
   }
-  const buffer = await ctx.startRendering();
-  return encodeWav(buffer, 0, buffer.duration);
+  source.connect(biquad).connect(envelope(ctx, at, peak, decay));
+  source.start(at);
 }
 
-async function seedDefaultPad() {
-  const blob = await synthesizeDing();
-  const sound = {
-    id: crypto.randomUUID(),
-    name: 'Ding',
-    blob,
-    duration: 1.4,
-    color: COLORS[0],
-    code: 'Digit1',
-    key: '1',
-    loop: false,
-    createdAt: Date.now(),
-  };
-  await db.put(sound);
-  addPad(sound);
+const SAMPLES = {
+  Ding: () =>
+    render(1.4, (ctx) => {
+      for (const [freq, at] of [[1318.5, 0], [1046.5, 0.18]]) { // E6, C6
+        tone(ctx, { freq, at, peak: 0.5, decay: 1.1 });
+        tone(ctx, { freq: freq * 2.01, at, peak: 0.12, decay: 0.8 });
+        tone(ctx, { freq: freq * 3, at, peak: 0.05, decay: 0.5 });
+      }
+    }),
+  Kick: () => render(0.5, (ctx) => tone(ctx, { freq: 150, to: 40, peak: 0.9, decay: 0.45 })),
+  Snare: () =>
+    render(0.3, (ctx) => {
+      noise(ctx, { freq: 1500, peak: 0.6, decay: 0.22 });
+      tone(ctx, { type: 'triangle', freq: 190, to: 120, peak: 0.4, decay: 0.12 });
+    }),
+  'Hi-hat': () => render(0.12, (ctx) => noise(ctx, { freq: 7000, peak: 0.45, decay: 0.07 })),
+  Laser: () => render(0.45, (ctx) => tone(ctx, { type: 'sawtooth', freq: 1800, to: 90, peak: 0.3, decay: 0.38 })),
+  Coin: () =>
+    render(0.6, (ctx) => {
+      tone(ctx, { type: 'square', freq: 988, peak: 0.25, decay: 0.08 });
+      tone(ctx, { type: 'square', freq: 1319, at: 0.08, peak: 0.25, decay: 0.45 });
+    }),
+  Whoosh: () =>
+    render(0.9, (ctx) => noise(ctx, { filter: 'bandpass', freq: 300, sweepTo: 3000, peak: 0.7, decay: 0.85 })),
+  'Power-up': () =>
+    render(0.6, (ctx) => {
+      [523.3, 659.3, 784, 1046.5].forEach((freq, i) => // C5 E5 G5 C6
+        tone(ctx, { type: 'square', freq, at: i * 0.07, peak: 0.2, decay: i === 3 ? 0.3 : 0.07 }));
+    }),
+};
+
+async function seedSamples(names) {
+  for (const [i, name] of names.entries()) {
+    const buffer = await SAMPLES[name]();
+    // Bring every sample to the same peak so none sounds much louder.
+    const data = buffer.getChannelData(0);
+    let peak = 0;
+    for (const v of data) peak = Math.max(peak, Math.abs(v));
+    if (peak) for (let j = 0; j < data.length; j++) data[j] *= 0.8 / peak;
+    const sound = {
+      id: crypto.randomUUID(),
+      name,
+      blob: encodeWav(buffer, 0, buffer.duration),
+      duration: buffer.duration,
+      color: COLORS[i % COLORS.length],
+      code: `Digit${i + 1}`,
+      key: String(i + 1),
+      loop: false,
+      createdAt: Date.now() + i,
+    };
+    await db.put(sound);
+    addPad(sound);
+  }
+}
+
+// Moves sounds and settings saved under the old "soundpad" names, once, so
+// nothing is lost after the rename.
+async function migrateLegacyData() {
+  for (const key of [VOLUME_KEY, LANGUAGE_KEY, SEEDED_KEY]) {
+    const legacyKey = key.replace('blipdeck', LEGACY_PREFIX);
+    const value = readSetting(legacyKey);
+    if (value === null) continue;
+    if (readSetting(key) === null) writeSetting(key, value);
+    try {
+      localStorage.removeItem(legacyKey);
+    } catch {}
+  }
+
+  // indexedDB.open() would create the old database if it didn't exist, so
+  // check that it is really there first.
+  if (!indexedDB.databases) return;
+  const existing = await indexedDB.databases();
+  if (!existing.some((d) => d.name === LEGACY_PREFIX)) return;
+  const legacy = await new Promise((resolve, reject) => {
+    const req = indexedDB.open(LEGACY_PREFIX);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+  if (legacy.objectStoreNames.contains(STORE)) {
+    const old = await new Promise((resolve, reject) => {
+      const req = legacy.transaction(STORE).objectStore(STORE).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+    for (const sound of old) await db.put(sound);
+  }
+  legacy.close();
+  indexedDB.deleteDatabase(LEGACY_PREFIX);
 }
 
 // ---------------------------------------------------------------------------
-// Avvio
+// Startup
 // ---------------------------------------------------------------------------
 (async () => {
   try {
-    const saved = Number(localStorage.getItem('soundpad.volume'));
-    if (saved >= 0 && saved <= 1 && localStorage.getItem('soundpad.volume') !== null) {
-      masterVolume = saved;
-      $('#masterVolume').value = String(saved);
-    }
-  } catch {}
+    await migrateLegacyData();
+  } catch (err) {
+    console.warn('Could not migrate data from the old version', err);
+  }
+
+  applyLanguage(readSetting(LANGUAGE_KEY) || DEFAULT_LANGUAGE);
+
+  const savedVolume = readSetting(VOLUME_KEY);
+  if (savedVolume !== null && Number(savedVolume) >= 0 && Number(savedVolume) <= 1) {
+    masterVolume = Number(savedVolume);
+    $('#masterVolume').value = savedVolume;
+  }
 
   const all = await db.all();
   all.sort(byOrder).forEach(addPad);
 
-  let seeded = true;
-  try {
-    seeded = localStorage.getItem(SEEDED_KEY) !== null;
-  } catch {}
-  if (!seeded) {
-    try {
-      localStorage.setItem(SEEDED_KEY, '1');
-    } catch {}
-    if (!all.length) await seedDefaultPad();
+  if (readSetting(SEEDED_KEY) === null) {
+    writeSetting(SEEDED_KEY, '1');
+    if (!all.length) await seedSamples(IS_LOCAL_SERVER ? ['Ding'] : Object.keys(SAMPLES));
   }
   updateEmptyState();
 })();
 
-// Collegamento al server: finché almeno una scheda è aperta il server resta
-// attivo, quando si chiude l'ultima si ferma da solo.
-new EventSource('/events');
+// Link to the local server: it keeps running while at least one tab is open
+// and stops by itself when the last one is closed. The online demo has no
+// server to talk to.
+if (IS_LOCAL_SERVER) new EventSource('/events');

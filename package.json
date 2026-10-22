@@ -1,7 +1,7 @@
 {
-  "name": "soundpad",
+  "name": "blipdeck",
   "version": "1.0.0",
-  "description": "Soundboard locale: registra suoni dal microfono e riproducili con pulsanti o scorciatoie da tastiera.",
+  "description": "A local soundboard in your browser: record sounds, trim them and play them with buttons or keyboard shortcuts.",
   "private": true,
   "scripts": {
     "start": "node server.js"

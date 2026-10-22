@@ -1,43 +1,79 @@
-# Soundpad
+<p align="center">
+  <img src="docs/banner.svg" alt="Blipdeck: record sounds, trim them, play them with a key" width="100%">
+</p>
 
-Una soundboard che gira in locale nel browser: registri suoni dal microfono (o importi file audio), li ritagli e li riproduci cliccando sui pad o con scorciatoie da tastiera.
+<p align="center">
+  <a href="https://azammarchi.github.io/blipdeck/"><strong>▶ Try the live demo</strong></a>
+</p>
 
-## Avvio
+**Blipdeck** is a soundboard that runs entirely in your browser. Record sounds from your microphone (or import audio files), trim them, and play them by clicking a pad or pressing a keyboard shortcut. No accounts, no uploads: your sounds never leave your computer.
 
-Serve solo Node.js (nessuna dipendenza da installare):
+## Features
+
+- 🎙️ **Record** from the microphone; silence at the start and end is removed automatically
+- ✂️ **Trim** any sound on its waveform, with preview and one-click silence removal
+- ⌨️ **Keyboard shortcuts**: bind any key to any pad
+- 🔁 **Loop** and **rename** any pad
+- ↕️ **Reorder** pads by holding one down and dragging it
+- 💾 **Export / import** your whole board (sounds, names, keys) as a single file
+- 🌐 **12 languages**: English, Italiano, Español, Français, Deutsch, Português, Русский, 中文, 日本語, 한국어, हिन्दी, العربية
+- 📦 **Zero dependencies**: plain HTML, CSS and JavaScript
+
+## Try it online
+
+The [live demo](https://azammarchi.github.io/blipdeck/) opens with eight sample pads on keys `1`–`8` (all synthesized in code). Everything works there too, recording included; sounds are saved in that browser only.
+
+## Run it locally
+
+You only need [Node.js](https://nodejs.org) (no packages to install):
 
 ```bash
 npm start
 ```
 
-Si apre da solo il browser predefinito su <http://localhost:5173> (se la porta è occupata usa la successiva). La porta si cambia con `PORT=8080 npm start`; per non aprire il browser usa `NO_OPEN=1 npm start`.
+Your default browser opens at <http://localhost:5173>. If that port is busy, the next free one is used.
 
-Quando chiudi la scheda (o la finestra) dell'app il server si ferma da solo. Ricaricare la pagina non lo ferma, e con più schede aperte si ferma solo alla chiusura dell'ultima. Per tenerlo sempre attivo usa `KEEP_RUNNING=1 npm start`.
+When you close the app's tab (or window) the server stops by itself. Reloading the page doesn't stop it, and with several tabs open it stops when the last one closes.
 
-> Il microfono funziona solo su `localhost` o HTTPS, per questo l'app va servita dal server incluso e non aperta come file.
-
-## Uso
-
-Al primo avvio trovi un pad di esempio, **Ding**, sul tasto `1`: è generato dal codice (nessun file audio nel repo) e puoi eliminarlo; una volta eliminato non ricompare.
-
-| Azione | Come |
+| Environment variable | Effect |
 | --- | --- |
-| Registrare un suono | pulsante **Registra** o tasto `R` (di nuovo per fermare); i silenzi all'inizio e alla fine vengono tolti in automatico |
-| Importare un file audio | **Importa** e scegli uno o più file audio |
-| Ritagliare un suono | **Taglia** sul pad: trascina le maniglie gialle, **Anteprima** per ascoltare, **Togli silenzi** per tagliare in automatico i silenzi all'inizio e alla fine, poi **Salva** |
-| Riprodurre | clic sul pad o la sua scorciatoia |
-| Cambiare l'ordine dei pad | tieni premuto un pad finché si "solleva", poi trascinalo dove vuoi |
-| Assegnare una scorciatoia | **Tasto** sul pad, poi premi il tasto desiderato (`Backspace` la rimuove, `Esc` annulla) |
-| Rinominare / loop / eliminare | pulsanti **Nome**, **Loop**, **✕** sul pad |
-| Fermare tutto | **Ferma tutto** o `Esc` |
+| `PORT=8080` | Use a different port |
+| `NO_OPEN=1` | Don't open the browser |
+| `KEEP_RUNNING=1` | Keep the server running after the last tab closes |
 
-Il ritaglio sostituisce l'audio originale (salvato come WAV), quindi non si può annullare dopo il salvataggio.
+> The microphone only works on `localhost` or HTTPS, so serve the app with the included server rather than opening `index.html` as a file.
 
-## Backup e trasferimento
+## How to use it
 
-- **Esporta** scarica un file `soundpad-AAAA-MM-GG.json` con tutti i suoni, i nomi, i tasti assegnati, i colori e il loop.
-- **Importa** con quel file `.json` li ricarica. Se hai già dei suoni ti chiede se **sostituirli** (OK) o **aggiungere** quelli importati (Annulla); in aggiunta, un tasto già usato resta al suono esistente e quello importato rimane senza scorciatoia.
+On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete it whenever you like; it won't come back.
 
-I tuoi suoni non finiscono mai nel repo: vivono nel browser. Per sicurezza `.gitignore` esclude anche i file `soundpad-*.json` esportati e i file audio salvati nella cartella del progetto.
+| Action | How |
+| --- | --- |
+| Record a sound | **Record** button or the `R` key (press again to stop) |
+| Import audio files | **Import**, then pick one or more audio files |
+| Play | Click the pad or press its shortcut |
+| Assign a shortcut | **Key** on the pad, then press the key you want (`Backspace` removes it, `Esc` cancels) |
+| Trim | **Trim** on the pad: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
+| Reorder | Hold a pad until it lifts, then drag it where you want |
+| Rename / loop / delete | **Name**, **Loop** and **✕** on the pad |
+| Stop everything | **Stop all** or `Esc` |
+| Change language | The 🌐 menu in the top bar |
 
-I suoni restano salvati nel browser (IndexedDB), quindi li ritrovi alla riapertura, ma sono legati a quel browser su quel PC.
+Trimming replaces the original audio (saved as WAV), so it can't be undone after saving.
+
+## Backup and moving to another computer
+
+- **Export** downloads a `blipdeck-YYYY-MM-DD.json` file with every sound, its name, key, color and loop setting.
+- **Import** that file to load them back. If you already have sounds, you choose whether to **replace** them or **add** the imported ones; when adding, a key that's already taken stays with your existing sound.
+
+## Where your sounds live
+
+Sounds are stored in your browser (IndexedDB), so they're there when you come back, but they belong to that browser on that computer. They are never part of the repository: as an extra safety net, `.gitignore` also excludes exported `blipdeck-*.json` files and audio files saved in the project folder.
+
+## Adding a language
+
+All interface text lives in [`public/i18n.js`](public/i18n.js). Copy the `en` block, give it a new language code and `name`, translate the strings, and it shows up in the language menu. Add `dir: 'rtl'` for right-to-left languages.
+
+## License
+
+[MIT](LICENSE)
