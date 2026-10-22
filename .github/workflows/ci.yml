@@ -27,7 +27,21 @@ jobs:
           node-version: lts/*
           cache: npm
       - run: npm ci
-      - run: npx playwright install --with-deps webkit chromium
+      # The browsers are cached between runs, keyed by the Playwright version in
+      # the lock file; the system libraries they need are installed every time.
+      - id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+      - name: Install browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps webkit chromium
+        timeout-minutes: 5
+      - name: Install browser system libraries
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps webkit chromium
+        timeout-minutes: 5
       - run: npm test
       - uses: actions/upload-artifact@v4
         if: failure()
