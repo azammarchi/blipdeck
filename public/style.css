@@ -319,3 +319,21 @@ kbd {
 }
 body.reordering { cursor: grabbing; user-select: none; }
 body.reordering * { cursor: grabbing !important; }
+
+/* ?debug panel */
+.debug-panel {
+  position: fixed;
+  inset-inline: 8px;
+  bottom: 8px;
+  z-index: 50;
+  margin: 0;
+  padding: 8px 10px;
+  max-height: 40vh;
+  overflow: auto;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.85);
+  color: #9effa0;
+  font: 11px/1.4 ui-monospace, monospace;
+  white-space: pre-wrap;
+  pointer-events: none;
+}

@@ -53,7 +53,7 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Import audio files | **Import**, then pick one or more audio files |
 | Play | Click the pad or press its shortcut |
 | Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, delete |
-| Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels) |
+| Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels). Digits on the top row and on the numeric keypad count as the same key |
 | Trim | **⋯ → Trim this sound**: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
 | Reorder | Hold a pad until it lifts, then drag it where you want |
 | Stop everything | **Stop all** or `Esc` |
@@ -69,6 +69,10 @@ Trimming replaces the original audio (saved as WAV), so it can't be undone after
 ## Where your sounds live
 
 Sounds are stored in your browser (IndexedDB), so they're there when you come back, but they belong to that browser on that computer. They are never part of the repository: as an extra safety net, `.gitignore` also excludes exported `blipdeck-*.json` files and audio files saved in the project folder.
+
+## Troubleshooting
+
+If a keyboard shortcut doesn't respond, open the app with `?debug` at the end of the address (for example <http://localhost:5173/?debug>). A panel at the bottom shows every key press that reaches the page and what the app did with it.
 
 ## Adding a language
 

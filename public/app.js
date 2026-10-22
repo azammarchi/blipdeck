@@ -24,8 +24,10 @@ async function dbOp(mode, fn) {
   return new Promise((resolve, reject) => {
     const tx = db.transaction(STORE, mode);
     const req = fn(tx.objectStore(STORE));
+    const fail = () => reject(tx.error || req?.error || new Error('IndexedDB transaction failed'));
     tx.oncomplete = () => resolve(req && req.result);
-    tx.onerror = () => reject(tx.error);
+    tx.onerror = fail;
+    tx.onabort = fail;
   });
 }
 
@@ -60,6 +62,12 @@ function formatTime(seconds) {
   if (seconds < 10) return `${seconds.toFixed(1)}s`;
   const s = Math.max(0, Math.round(seconds));
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// The digit keys on the top row (Digit1) and on the numeric keypad (Numpad1)
+// look the same to the user, so they count as the same shortcut.
+function shortcutCode(code) {
+  return code ? code.replace(/^Numpad(\d)$/, 'Digit$1') : code;
 }
 
 function keyLabel(key) {
@@ -209,35 +217,46 @@ function startAssign(id) {
   renderPad(sounds.get(id));
 }
 
+// The screen is updated first and saved afterwards: if saving fails, the pad
+// must not stay stuck waiting for a key.
 async function assignKey(event) {
   const entry = sounds.get(assigningId);
   assigningId = null;
-  if (event.code === 'Escape') {
-    renderPad(entry);
-    return;
-  }
+  renderPad(entry);
+  if (event.code === 'Escape') return;
+  const code = shortcutCode(event.code);
+  const changed = [entry];
   if (event.code === 'Backspace' || event.code === 'Delete') {
     entry.sound.code = null;
     entry.sound.key = null;
-  } else if (RESERVED_CODES.has(event.code)) {
+  } else if (RESERVED_CODES.has(code)) {
     alert(t('keyReserved', { key: keyLabel(event.key) }));
-    renderPad(entry);
     return;
   } else {
     // A key can be bound to one sound only: take it away from the others.
     for (const other of sounds.values()) {
-      if (other !== entry && other.sound.code === event.code) {
+      if (other !== entry && shortcutCode(other.sound.code) === code) {
         other.sound.code = null;
         other.sound.key = null;
-        await db.put(other.sound);
-        renderPad(other);
+        changed.push(other);
       }
     }
-    entry.sound.code = event.code;
-    entry.sound.key = event.key;
+    entry.sound.code = code;
+    // With Num Lock off the keypad reports keys like "End": label it by digit.
+    entry.sound.key = code.startsWith('Digit') ? code.slice(5) : event.key;
   }
-  await db.put(entry.sound);
-  renderPad(entry);
+  for (const item of changed) renderPad(item);
+  await save(...changed.map((item) => item.sound));
+}
+
+// Saves sounds, telling the user when the browser refuses to.
+async function save(...list) {
+  try {
+    for (const sound of list) await db.put(sound);
+  } catch (err) {
+    console.error('Saving failed', err);
+    alert(t('saveError', { error: err?.message || err?.name || String(err) }));
+  }
 }
 
 function updateEmptyState() {
@@ -895,6 +914,7 @@ padMenu.addEventListener('click', (e) => {
   if (!item || !menuSoundId) return;
   const id = menuSoundId;
   closePopup();
+  sounds.get(id).el.querySelector('.play').focus({ preventScroll: true });
   PAD_ACTIONS[item.dataset.action](id);
 });
 
@@ -1007,8 +1027,9 @@ document.addEventListener('keydown', (e) => {
     toggleRecording();
     return;
   }
+  const code = shortcutCode(e.code);
   for (const [id, { sound }] of sounds) {
-    if (sound.code === e.code) {
+    if (shortcutCode(sound.code) === code) {
       e.preventDefault();
       trigger(id);
       return;
@@ -1183,6 +1204,41 @@ async function migrateLegacyData() {
   }
   updateEmptyState();
 })();
+
+// ---------------------------------------------------------------------------
+// Diagnostics: open the app with ?debug to see on screen every key press that
+// reaches the page, what the app did with it, and any error.
+// ---------------------------------------------------------------------------
+if (new URLSearchParams(location.search).has('debug')) {
+  const panel = document.createElement('pre');
+  panel.className = 'debug-panel';
+  document.body.append(panel);
+  const lines = [];
+  const log = (text) => {
+    lines.push(`${new Date().toLocaleTimeString()}  ${text}`);
+    panel.textContent = lines.slice(-12).join('\n');
+  };
+  document.addEventListener(
+    'keydown',
+    (e) => {
+      const mods = ['shift', 'ctrl', 'alt', 'meta'].filter((m) => e[`${m}Key`]).join('+') || '-';
+      const target = e.target instanceof Element ? `${e.target.tagName.toLowerCase()}${e.target.className ? '.' + e.target.className : ''}` : 'document';
+      const match = [...sounds.values()].find((x) => shortcutCode(x.sound.code) === shortcutCode(e.code));
+      const state = [
+        openPopup && 'menu-open',
+        assigningId && 'assigning',
+        trimDialog.open && 'trim-open',
+        importDialog.open && 'import-open',
+        isTextField(e.target) && 'text-field',
+      ].filter(Boolean).join(',') || 'idle';
+      log(`key=${JSON.stringify(e.key)} code=${e.code || '(empty)'} mods=${mods} target=${target} state=${state} pad=${match ? match.sound.name : '-'}`);
+    },
+    true,
+  );
+  window.addEventListener('error', (e) => log(`ERROR ${e.message}`));
+  window.addEventListener('unhandledrejection', (e) => log(`REJECTED ${e.reason?.message || e.reason?.name || e.reason}`));
+  log(`debug on · ${navigator.userAgent}`);
+}
 
 // Link to the local server: it keeps running while at least one tab is open
 // and stops by itself when the last one is closed. The online demo has no
