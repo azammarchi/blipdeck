@@ -19,19 +19,61 @@ test('first launch on the local server gets the single Ding pad', async ({ page 
   await expect(page.locator('#emptyState')).toBeVisible();
 });
 
-test('the online demo (any non-local host) starts with eight sample pads', async ({ page, baseURL }) => {
-  // Serve the app under another host name, over HTTPS, as GitHub Pages does
-  // (plain http on a non-local host is not a secure context).
+const DEMO_PADS = ['Ding', 'Kick', 'Snare', 'Hi-hat', 'Laser', 'Coin', 'Whoosh', 'Power-up'];
+
+// Serves the app under another host name, over HTTPS, as GitHub Pages does
+// (plain http on a non-local host is not a secure context).
+async function openDemo(page, baseURL) {
   await page.route('https://demo.test/**', async (route) => {
     const response = await route.fetch({ url: route.request().url().replace('https://demo.test', baseURL) });
     await route.fulfill({ response });
   });
+  await openApp(page, 'https://demo.test/');
+}
+
+test('the online demo (any non-local host) starts with eight sample pads', async ({ page, baseURL }) => {
   const serverEvents = [];
   page.on('request', (request) => request.url().includes('/events') && serverEvents.push(request.url()));
-  await openApp(page, 'https://demo.test/');
-  expect(await padNames(page)).toEqual(['Ding', 'Kick', 'Snare', 'Hi-hat', 'Laser', 'Coin', 'Whoosh', 'Power-up']);
+  await openDemo(page, baseURL);
+  expect(await padNames(page)).toEqual(DEMO_PADS);
   expect(await keys(page)).toEqual(['Ding=1', 'Kick=2', 'Snare=3', 'Hi-hat=4', 'Laser=5', 'Coin=6', 'Whoosh=7', 'Power-up=8']);
   expect(serverEvents).toEqual([]); // there is no local server to keep alive
+  await expect(page.locator('#resetDemoBtn')).toBeVisible();
+});
+
+test('the local app has no "Reset demo" button', async ({ page }) => {
+  await openApp(page);
+  await expect(page.locator('#resetDemoBtn')).toBeHidden();
+});
+
+test('"Reset demo" asks first, then restores the original demo', async ({ page, baseURL }) => {
+  await openDemo(page, baseURL);
+  // Change a few things: delete a pad, switch language, lower the volume.
+  page.once('dialog', (dialog) => dialog.accept());
+  await pad(page, 'Kick').locator('.more').click();
+  await page.locator('#padMenu [data-action="delete"]').click();
+  await page.locator('#languageButton').click();
+  await page.locator('#languageList li[data-code="it"]').click();
+  await page.locator('#masterVolume').focus();
+  await page.keyboard.press('Home');
+  await expect.poll(() => page.evaluate(async () => (await db.all()).length)).toBe(7);
+
+  // Cancel keeps everything.
+  page.once('dialog', (dialog) => dialog.dismiss());
+  await page.locator('#resetDemoBtn').click();
+  expect(await padNames(page)).not.toContain('Kick');
+  await expect(page.locator('#resetDemoBtn')).toHaveText('Ripristina demo');
+
+  // OK brings back the first-visit demo.
+  const messages = [];
+  page.once('dialog', (dialog) => messages.push(dialog.message()) && dialog.accept());
+  await page.locator('#resetDemoBtn').click();
+  await page.waitForFunction(() => document.documentElement.dataset.ready === 'true' && sounds.size === 8);
+  expect(messages[0]).toContain('8');
+  expect(await padNames(page)).toEqual(DEMO_PADS);
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+  await expect(page.locator('#masterVolume')).toHaveValue('1');
+  expect(await page.evaluate(async () => (await db.all()).length)).toBe(8);
 });
 
 test('export and import round-trip names, keys and loop; import can add or replace', async ({ page }, testInfo) => {

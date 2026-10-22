@@ -26,7 +26,7 @@
 
 ## Try it online
 
-The [live demo](https://azammarchi.github.io/blipdeck/) opens with eight sample pads on keys `1`–`8` (all synthesized in code). Everything works there too, recording included; sounds are saved in that browser only.
+The [live demo](https://azammarchi.github.io/blipdeck/) opens with eight sample pads on keys `1`–`8` (all synthesized in code). Everything works there too, recording included. Your changes are saved in your browser only, so every visitor gets their own copy of the demo; **Reset demo** in the top bar brings back the original sample pads.
 
 ## Run it locally
 

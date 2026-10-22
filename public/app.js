@@ -1055,6 +1055,25 @@ $('#importInput').addEventListener('change', async (e) => {
 
 $('#exportBtn').addEventListener('click', exportBank);
 
+// Online demo only: forgets everything changed in this browser and reloads,
+// so startup seeds the sample pads again as on a first visit.
+const resetDemoBtn = $('#resetDemoBtn');
+resetDemoBtn.hidden = IS_LOCAL_SERVER;
+
+async function resetDemo() {
+  if (!confirm(t('resetDemoConfirm'))) return;
+  stopAll();
+  for (const id of [...sounds.keys()]) await db.remove(id);
+  for (const key of [VOLUME_KEY, LANGUAGE_KEY, SEEDED_KEY]) {
+    try {
+      localStorage.removeItem(key);
+    } catch {}
+  }
+  location.reload();
+}
+
+resetDemoBtn.addEventListener('click', resetDemo);
+
 // Shortcuts are ignored only while typing text: other focused controls (the
 // volume slider, a button that was just clicked) must not swallow them.
 function isTextField(el) {
