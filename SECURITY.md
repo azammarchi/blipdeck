@@ -16,8 +16,8 @@ Only the latest version on the `main` branch (which is also what the [online dem
 
 ## Scope
 
-Blipdeck runs entirely in the browser and has no accounts or backend: sounds and settings are stored in the visitor's own browser and never uploaded. Relevant reports include, for example:
+Blipdeck has no accounts and no online backend: the online demo keeps sounds in the visitor's browser, and the local app keeps them in a folder on the user's computer through a server that only listens on `localhost`. Nothing is ever uploaded. Relevant reports include, for example:
 
 - a way for a crafted import file (`.json`) or audio file to run code or affect other data in the page;
 - a way for one site or visitor to read or change another visitor's sounds;
-- the local server (`server.js`) serving files outside the `public/` folder, or being reachable from other machines.
+- the local server (`server.js`) serving or writing files outside `public/` and `sounds/`, accepting requests from other sites or machines, or letting a web page change the saved sounds.

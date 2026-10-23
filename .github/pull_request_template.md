@@ -4,11 +4,12 @@
 
 ## Checklist
 
-- [ ] `npm test` passes (WebKit and Chromium)
+- [ ] `npm test` passes (WebKit, Firefox and Chromium)
 - [ ] Tests added or updated for the change, using real mouse/keyboard input
 - [ ] Commit messages follow `type(scope): description` (see CONTRIBUTING.md)
 - [ ] If the interface text changed: updated in all 12 languages in `public/i18n.js`
 - [ ] If behavior changed: README updated
+- [ ] New controls have a name and a keyboard path
 - [ ] No new runtime dependencies
 
 ## Screenshots

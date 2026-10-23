@@ -14,9 +14,9 @@ Blipdeck is plain HTML, CSS and JavaScript with no build step and no runtime dep
 
 ```bash
 npm start            # runs the app at http://localhost:5173
-npm install          # test tools only (Playwright)
+npm install          # test tools only (Playwright, axe-core)
 npm run test:install # the browsers the tests drive
-npm test             # end-to-end tests in WebKit and Chromium
+npm test             # end-to-end tests in WebKit, Firefox and Chromium
 ```
 
 Where things live:
@@ -27,7 +27,7 @@ Where things live:
 | `public/app.js` | Everything the app does: storage, playback, pads, trimming, import/export |
 | `public/i18n.js` | All interface text, in every language |
 | `public/style.css` | Styles |
-| `server.js` | Tiny local server (no dependencies) |
+| `server.js` | Tiny local server (no dependencies) that also saves sounds into `sounds/` |
 | `tests/` | Playwright end-to-end tests |
 
 ## Guidelines
@@ -35,7 +35,8 @@ Where things live:
 - **English only** for code, comments, docs and commit messages. Interface text goes in `public/i18n.js`, never directly in HTML or JavaScript.
 - **Keep it dependency-free.** The app must keep working by just serving `public/`.
 - **Add or update tests** for what you change, using real mouse and keyboard input (`page.mouse`, `page.keyboard`) rather than synthetic events: synthetic events have hidden real browser bugs before.
-- **Check both browsers.** `npm test` runs WebKit (Safari's engine) and Chromium; CI runs the same suite on every pull request.
+- **Check every browser.** `npm test` runs WebKit (Safari's engine), Firefox and Chromium; CI runs the same suite on every pull request.
+- **Keep it accessible.** New controls need a name (`data-i18n-label` for icon-only ones) and a keyboard path; `tests/a11y.spec.js` runs axe-core on every view. See [ACCESSIBILITY.md](ACCESSIBILITY.md).
 
 ### Translations
 

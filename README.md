@@ -11,17 +11,20 @@
   <a href="https://azammarchi.github.io/blipdeck/"><strong>▶ Try the live demo</strong></a>
 </p>
 
-**Blipdeck** is a soundboard that runs entirely in your browser. Record sounds from your microphone (or import audio files), trim them, and play them by clicking a pad or pressing a keyboard shortcut. No accounts, no uploads: your sounds never leave your computer.
+**Blipdeck** is a soundboard that runs in your browser. Record sounds from your microphone (or import audio files), trim them, and play them by clicking a pad or pressing a keyboard shortcut. No accounts, no uploads: your sounds never leave your computer, and the local app keeps them as plain audio files.
 
 ## Features
 
 - 🎙️ **Record** from the microphone; silence at the start and end is removed automatically
-- ✂️ **Trim** any sound on its waveform, with preview and one-click silence removal
+- ✂️ **Trim** any sound on its waveform, with preview, one-click silence removal and **Restore original** to undo
 - ⌨️ **Keyboard shortcuts**: bind any key to any pad
 - 🔁 **Loop** and **rename** any pad
-- ↕️ **Reorder** pads by dragging them
-- 💾 **Export / import** your whole board (sounds, names, keys) as a single file
+- ↕️ **Reorder** pads by dragging them (long press on touch screens) or from the keyboard
+- 🔊 **Play many at once**: every pad goes through one Web Audio mixer, so starting a sound never interrupts another
+- 💾 **Your sounds are files**: the local app saves them in a `sounds/` folder you can back up or copy
+- 📤 **Export / import** your whole board (sounds, names, keys) as a single file
 - 🌐 **12 languages**: English, Italiano, Español, Français, Deutsch, Português, Русский, 中文, 日本語, 한국어, हिन्दी, العربية
+- ♿ **Accessible**: keyboard-only use, screen reader labels and announcements, WCAG 2.1 AA contrast ([details](ACCESSIBILITY.md))
 - 📦 **Zero dependencies**: plain HTML, CSS and JavaScript
 
 ## Try it online
@@ -45,6 +48,7 @@ When you close the app's tab (or window) the server stops by itself. Reloading t
 | `PORT=8080` | Use a different port |
 | `NO_OPEN=1` | Don't open the browser |
 | `KEEP_RUNNING=1` | Keep the server running after the last tab closes |
+| `SOUNDS_DIR=/path/to/folder` | Save the sounds somewhere other than `sounds/` |
 
 > The microphone only works on `localhost` or HTTPS, so serve the app with the included server rather than opening `index.html` as a file.
 
@@ -57,10 +61,10 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Record a sound | **Record** button or the `R` key (press again to stop) |
 | Import audio files | **Import**, then pick one or more audio files |
 | Play | Click the pad or press its shortcut |
-| Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, delete |
+| Pad actions | The **⋯** button in the pad's corner opens its menu: shortcut, trim, rename, loop, move, delete |
 | Assign a shortcut | **⋯ → Assign a keyboard shortcut**, then press the key you want (`Backspace` removes it, `Esc` cancels). Digits on the top row and on the numeric keypad count as the same key |
-| Trim | **⋯ → Trim this sound**: drag the yellow handles, **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
-| Reorder | Drag a pad where you want (a click without moving plays it). On touch screens, long-press the pad first: a quick swipe scrolls the page |
+| Trim | **⋯ → Trim this sound**: drag the yellow handles (or focus one and use the arrow keys), **Preview** to listen, **Remove silence** to cut it automatically, then **Save** |
+| Reorder | Drag a pad where you want (a click without moving plays it). On touch screens, long-press the pad first: a quick swipe scrolls the page. From the keyboard: **⋯ → Move earlier / Move later** |
 | Stop everything | **Stop all** or `Esc` |
 | Change language | The flag menu in the top bar |
 
@@ -73,7 +77,11 @@ The first trim keeps the untrimmed audio: **Restore original** in the trim windo
 
 ## Where your sounds live
 
-Sounds are stored in your browser (IndexedDB), so they're there when you come back, but they belong to that browser on that computer. They are never part of the repository: as an extra safety net, `.gitignore` also excludes exported `blipdeck-*.json` files and audio files saved in the project folder.
+**Local app (`npm start`):** in the project's `sounds/` folder, as real files: one audio file per sound (plus `<id>.original.<ext>` for trimmed sounds) and a readable `board.json` with names, keys, order and loop settings. They don't depend on the browser, so clearing its data or switching browser loses nothing, and backing up or moving your board is just copying the folder. Sounds saved in the browser by earlier versions move into the folder automatically on the first launch.
+
+**Online demo:** there's no server, so sounds stay in that browser's storage. Once you add sounds of your own, the demo asks the browser to keep them and reminds you every now and then to **Export** a backup.
+
+Your sounds are never part of the repository: `.gitignore` excludes `sounds/`, exported `blipdeck-*.json` files and audio files saved in the project folder.
 
 ## Troubleshooting
 
@@ -81,7 +89,7 @@ If a keyboard shortcut doesn't respond, open the app with `?debug` at the end of
 
 ## Tests
 
-The end-to-end tests drive the real app with real mouse and keyboard input in **WebKit** (Safari's engine) and **Chromium**, using [Playwright](https://playwright.dev). They cover playback (including several pads at once), shortcuts, the pad menu, drag to reorder, trimming, recording, import/export, the online demo, migration from older versions and every language.
+The end-to-end tests drive the real app with real mouse, keyboard and touch input in **WebKit** (Safari's engine), **Firefox** and **Chromium**, using [Playwright](https://playwright.dev). They cover playback (including several pads at once), shortcuts, the pad menu, drag to reorder, trimming and undo, recording, saving to files, import/export, the online demo, migration from older versions, every language and accessibility (with [axe-core](https://github.com/dequelabs/axe-core)). Each test runs its own server with its own temporary `sounds/` folder.
 
 ```bash
 npm install
@@ -89,7 +97,7 @@ npm run test:install
 npm test
 ```
 
-`npm install` only adds the test tools: the app itself has no dependencies. The first command fetches Playwright, the second the two browsers it drives.
+`npm install` only adds the test tools: the app itself has no dependencies. The first command fetches Playwright and axe-core, the second the three browsers they drive.
 
 On GitHub, [CI](.github/workflows/ci.yml) runs the tests on every push and pull request, and the online demo is published only when they pass.
 
