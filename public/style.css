@@ -6,6 +6,9 @@
   --muted: #8a90a2;
   --accent: #6c8cff;
   --rec: #ff4d5e;
+  /* Text on the bright pad, accent and record colors: white on them doesn't
+     reach the 4.5:1 contrast WCAG asks for, this dark ink does on all of them. */
+  --on-color: #10131a;
   --radius: 12px;
   color-scheme: dark;
 }
@@ -42,13 +45,27 @@ h1 { margin: 0; font-size: 22px; letter-spacing: 0.5px; }
 
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 
+/* A clear focus ring for keyboard users (menus style their own). */
+:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+[dir="rtl"] .flip-rtl { transform: scaleX(-1); }
+
 button, .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 7px;
   font: inherit;
-  color: var(--text);
+  color: var(--on-color);
   background: var(--accent);
   border: 0;
   border-radius: 8px;
@@ -57,7 +74,7 @@ button, .button {
   user-select: none;
 }
 button:hover, .button:hover { filter: brightness(1.12); }
-.secondary { background: var(--panel-hi); }
+.secondary { background: var(--panel-hi); color: var(--text); }
 
 .icon {
   width: 17px;
@@ -76,10 +93,10 @@ button:hover, .button:hover { filter: brightness(1.12); }
 .danger { background: transparent; color: var(--muted); }
 .danger:hover { color: var(--rec); }
 
-.record { background: var(--panel-hi); }
+.record { background: var(--panel-hi); color: var(--text); }
 .record .dot { width: 12px; height: 12px; border-radius: 50%; background: var(--rec); }
-.record.recording { background: var(--rec); }
-.record.recording .dot { background: #fff; border-radius: 2px; animation: pulse 1s infinite; }
+.record.recording { background: var(--rec); color: var(--on-color); }
+.record.recording .dot { background: var(--on-color); border-radius: 2px; animation: pulse 1s infinite; }
 @keyframes pulse { 50% { opacity: 0.3; } }
 
 .timer { font-variant-numeric: tabular-nums; color: var(--rec); min-width: 3em; }
@@ -127,6 +144,7 @@ main { flex: 1; padding: 24px; }
   height: 130px;
   padding: 8px 12px;
   background: var(--pad-color, var(--accent));
+  color: var(--on-color);
   border-radius: var(--radius);
   overflow: hidden;
   transition: transform 0.06s;
@@ -135,7 +153,7 @@ main { flex: 1; padding: 24px; }
 .pad.playing .play { filter: brightness(1.25); }
 
 .pad .name { font-weight: 600; font-size: 16px; text-align: center; padding: 0 8px; word-break: break-word; }
-.pad .duration { font-size: 12px; opacity: 0.75; }
+.pad .duration { font-size: 12px; font-weight: 500; }
 .pad .badges {
   position: absolute;
   top: 8px;
@@ -146,7 +164,8 @@ main { flex: 1; padding: 24px; }
 .pad .key, .pad .loop-badge {
   height: 22px;
   border-radius: 6px;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
 }
 .pad .key {
   min-width: 24px;
@@ -161,6 +180,7 @@ main { flex: 1; padding: 24px; }
 .pad .assign-hint {
   position: absolute;
   inset: 0;
+  color: var(--text);
   display: none;
   align-items: center;
   justify-content: center;
@@ -174,6 +194,7 @@ main { flex: 1; padding: 24px; }
 .pad.assigning .play { outline: 2px solid #f5b942; outline-offset: 2px; }
 
 .pad .more {
+  color: var(--on-color);
   position: absolute;
   top: 6px;
   inset-inline-end: 6px;
@@ -209,6 +230,7 @@ footer {
 .repo-link:hover { color: var(--text); }
 
 kbd {
+  color: var(--text);
   font: 12px ui-monospace, monospace;
   padding: 1px 6px;
   border-radius: 4px;
@@ -339,6 +361,13 @@ kbd {
   box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5);
 }
 body.reordering { cursor: grabbing; user-select: none; }
+
+/* People who asked their system for less motion get no tilting, pulsing or
+   pressed-pad animations. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  .drag-ghost, .pad .play:active, .pad.playing .play { transform: none; }
+}
 body.reordering * { cursor: grabbing !important; }
 
 /* ?debug panel */

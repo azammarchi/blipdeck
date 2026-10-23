@@ -9,7 +9,7 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- Icon set: used as <svg class="icon"><use href="#i-name"/></svg> -->
+  <!-- Icon set: used as <svg class="icon" aria-hidden="true"><use href="#i-name"/></svg> -->
   <svg xmlns="http://www.w3.org/2000/svg" class="sprite" aria-hidden="true">
     <defs>
       <symbol id="i-upload" viewBox="0 0 24 24"><path d="M12 15V3M7 8l5-5 5 5M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></symbol>
@@ -30,6 +30,8 @@
       <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
       <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 7h14l-3-3M20 17H6l3 3"/></symbol>
       <symbol id="i-reset" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 2.6-6.4L3 8M3 3v5h5"/></symbol>
+      <symbol id="i-arrow-back" viewBox="0 0 24 24"><path d="M19 12H5M11 6l-6 6 6 6"/></symbol>
+      <symbol id="i-arrow-forward" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></symbol>
       <symbol id="i-github" viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.5-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 0 0-1.3-3.2 4.2 4.2 0 0 0-.1-3.2s-1.1-.3-3.5 1.3a12.3 12.3 0 0 0-6.2 0C6.5 2.8 5.4 3.1 5.4 3.1a4.2 4.2 0 0 0-.1 3.2A4.6 4.6 0 0 0 4 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></symbol>
     </defs>
   </svg>
@@ -42,38 +44,38 @@
       </button>
       <span id="timer" class="timer" hidden>0:00</span>
       <label class="button secondary" data-i18n-title="importTitle">
-        <svg class="icon"><use href="#i-upload"/></svg><span data-i18n="import">Import</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-upload"/></svg><span data-i18n="import">Import</span>
         <input id="importInput" type="file" accept="audio/*,.json,application/json" multiple hidden>
       </label>
       <button id="exportBtn" class="secondary" data-i18n-title="exportTitle">
-        <svg class="icon"><use href="#i-download"/></svg><span data-i18n="export">Export</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="export">Export</span>
       </button>
       <button id="stopAllBtn" class="secondary" data-i18n-title="stopAllTitle">
-        <svg class="icon"><use href="#i-stop"/></svg><span data-i18n="stopAll">Stop all</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-stop"/></svg><span data-i18n="stopAll">Stop all</span>
       </button>
       <!-- Only on the online demo: a local install holds the user's own sounds. -->
       <button id="resetDemoBtn" class="secondary" data-i18n-title="resetDemoTitle" hidden>
-        <svg class="icon"><use href="#i-reset"/></svg><span data-i18n="resetDemo">Reset demo</span>
+        <svg class="icon" aria-hidden="true"><use href="#i-reset"/></svg><span data-i18n="resetDemo">Reset demo</span>
       </button>
       <label class="volume" data-i18n-title="volumeTitle">
-        <svg class="icon"><use href="#i-volume"/></svg>
-        <input id="masterVolume" type="range" min="0" max="1" step="0.01" value="1" autocomplete="off">
+        <svg class="icon" aria-hidden="true"><use href="#i-volume"/></svg>
+        <input id="masterVolume" type="range" min="0" max="1" step="0.01" value="1" autocomplete="off" data-i18n-label="volumeTitle">
       </label>
       <div class="lang-picker">
         <button id="languageButton" class="secondary" aria-haspopup="listbox" aria-expanded="false" data-i18n-title="languageTitle">
-          <img class="flag" alt=""><span class="lang-name"></span><svg class="icon chevron"><use href="#i-chevron"/></svg>
+          <img class="flag" alt=""><span class="lang-name"></span><svg class="icon chevron" aria-hidden="true"><use href="#i-chevron"/></svg>
         </button>
-        <ul id="languageList" class="menu" role="listbox" hidden></ul>
+        <ul id="languageList" class="menu" role="listbox" data-i18n-label="languageTitle" hidden></ul>
       </div>
     </div>
   </header>
 
   <!-- Online demo only: shown once the visitor has sounds of their own. -->
   <div id="backupNotice" class="notice" role="status" hidden>
-    <svg class="icon"><use href="#i-download"/></svg>
+    <svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>
     <p data-i18n="backupNotice"></p>
     <div class="notice-actions">
-      <button id="backupExportBtn"><svg class="icon"><use href="#i-download"/></svg><span data-i18n="export"></span></button>
+      <button id="backupExportBtn"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="export"></span></button>
       <button id="backupLaterBtn" class="secondary" data-i18n="backupLater"></button>
     </div>
   </div>
@@ -81,12 +83,28 @@
   <main>
     <p id="emptyState" class="empty" data-i18n-html="emptyState"></p>
     <div id="grid" class="grid"></div>
+
+    <!-- One actions menu shared by every pad, opened by its ⋯ button. -->
+    <div id="padMenu" class="menu" role="menu" hidden>
+      <button role="menuitem" data-action="assign"><svg class="icon" aria-hidden="true"><use href="#i-keyboard"/></svg><span data-i18n="assignTitle"></span></button>
+      <button role="menuitem" data-action="trim"><svg class="icon" aria-hidden="true"><use href="#i-scissors"/></svg><span data-i18n="trimTitle"></span></button>
+      <button role="menuitem" data-action="rename"><svg class="icon" aria-hidden="true"><use href="#i-pencil"/></svg><span data-i18n="renameTitle"></span></button>
+      <button role="menuitemcheckbox" data-action="loop"><svg class="icon" aria-hidden="true"><use href="#i-repeat"/></svg><span data-i18n="loopTitle"></span><svg class="icon check" aria-hidden="true"><use href="#i-check"/></svg></button>
+      <hr>
+      <button role="menuitem" data-action="moveEarlier"><svg class="icon flip-rtl" aria-hidden="true"><use href="#i-arrow-back"/></svg><span data-i18n="moveEarlier"></span></button>
+      <button role="menuitem" data-action="moveLater"><svg class="icon flip-rtl" aria-hidden="true"><use href="#i-arrow-forward"/></svg><span data-i18n="moveLater"></span></button>
+      <hr>
+      <button role="menuitem" data-action="delete" class="danger"><svg class="icon" aria-hidden="true"><use href="#i-trash"/></svg><span data-i18n="deleteTitle"></span></button>
+    </div>
   </main>
+
+  <!-- Spoken by screen readers: recording, shortcuts, moved pads. -->
+  <div id="announcer" class="visually-hidden" aria-live="polite"></div>
 
   <footer>
     <span data-i18n-html="footer"></span>
     <a class="repo-link" href="https://github.com/azammarchi/blipdeck" target="_blank" rel="noopener">
-      <svg class="icon"><use href="#i-github"/></svg>GitHub
+      <svg class="icon" aria-hidden="true"><use href="#i-github"/></svg>GitHub
     </a>
   </footer>
 
@@ -95,40 +113,31 @@
       <button class="play" data-i18n-title="playTitle">
         <span class="badges">
           <span class="key"></span>
-          <svg class="icon loop-badge"><use href="#i-repeat"/></svg>
+          <svg class="icon loop-badge" aria-hidden="true"><use href="#i-repeat"/></svg>
         </span>
         <span class="name"></span>
         <span class="duration"></span>
         <span class="assign-hint" data-i18n="pressKey"></span>
         <span class="progress"></span>
       </button>
-      <button class="more" aria-haspopup="menu" data-i18n-title="menuTitle">
-        <svg class="icon"><use href="#i-more"/></svg>
+      <button class="more" aria-haspopup="menu" data-i18n-title="menuTitle" data-i18n-label="menuTitle">
+        <svg class="icon" aria-hidden="true"><use href="#i-more"/></svg>
       </button>
     </div>
   </template>
 
-  <!-- One actions menu shared by every pad, opened by its ⋯ button. -->
-  <div id="padMenu" class="menu" role="menu" hidden>
-    <button role="menuitem" data-action="assign"><svg class="icon"><use href="#i-keyboard"/></svg><span data-i18n="assignTitle"></span></button>
-    <button role="menuitem" data-action="trim"><svg class="icon"><use href="#i-scissors"/></svg><span data-i18n="trimTitle"></span></button>
-    <button role="menuitem" data-action="rename"><svg class="icon"><use href="#i-pencil"/></svg><span data-i18n="renameTitle"></span></button>
-    <button role="menuitemcheckbox" data-action="loop"><svg class="icon"><use href="#i-repeat"/></svg><span data-i18n="loopTitle"></span><svg class="icon check"><use href="#i-check"/></svg></button>
-    <hr>
-    <button role="menuitem" data-action="delete" class="danger"><svg class="icon"><use href="#i-trash"/></svg><span data-i18n="deleteTitle"></span></button>
-  </div>
-
-  <dialog id="trimDialog" class="modal trim-dialog">
+  <dialog id="trimDialog" class="modal trim-dialog" aria-labelledby="trimHeading">
     <form method="dialog">
       <h2 id="trimHeading"></h2>
       <p class="hint" data-i18n="trimHint"></p>
       <!-- Time always runs left to right, even in right-to-left languages. -->
       <div class="wave-wrap" dir="ltr">
-        <canvas id="trimCanvas" width="1200" height="240"></canvas>
+        <canvas id="trimCanvas" width="1200" height="240" aria-hidden="true"></canvas>
         <div id="trimShadeStart" class="shade"></div>
         <div id="trimShadeEnd" class="shade"></div>
-        <div id="trimHandleStart" class="handle"></div>
-        <div id="trimHandleEnd" class="handle"></div>
+        <!-- Sliders for the keyboard too: arrows move by 0.05 s, Shift+arrows by 0.5 s. -->
+        <div id="trimHandleStart" class="handle" role="slider" tabindex="0" data-i18n-label="trimStart"></div>
+        <div id="trimHandleEnd" class="handle" role="slider" tabindex="0" data-i18n-label="trimEnd"></div>
         <div id="trimPlayhead" class="playhead" hidden></div>
       </div>
       <div class="trim-times" dir="ltr">
@@ -138,31 +147,31 @@
       </div>
       <div class="dialog-buttons">
         <button type="button" id="trimPreviewBtn" class="secondary">
-          <svg class="icon"><use href="#i-play"/></svg><span data-i18n="preview"></span>
+          <svg class="icon" aria-hidden="true"><use href="#i-play"/></svg><span data-i18n="preview"></span>
         </button>
         <button type="button" id="trimAutoBtn" class="secondary" data-i18n-title="removeSilenceTitle">
-          <svg class="icon"><use href="#i-sparkles"/></svg><span data-i18n="removeSilence"></span>
+          <svg class="icon" aria-hidden="true"><use href="#i-sparkles"/></svg><span data-i18n="removeSilence"></span>
         </button>
         <!-- Only once the sound has been trimmed: undoes every trim. -->
         <button type="button" id="trimRestoreBtn" class="secondary" data-i18n-title="restoreOriginalTitle" hidden>
-          <svg class="icon"><use href="#i-reset"/></svg><span data-i18n="restoreOriginal"></span>
+          <svg class="icon" aria-hidden="true"><use href="#i-reset"/></svg><span data-i18n="restoreOriginal"></span>
         </button>
         <span class="spacer"></span>
-        <button value="cancel" class="secondary"><svg class="icon"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
-        <button type="button" id="trimSaveBtn"><svg class="icon"><use href="#i-check"/></svg><span data-i18n="save"></span></button>
+        <button value="cancel" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
+        <button type="button" id="trimSaveBtn"><svg class="icon" aria-hidden="true"><use href="#i-check"/></svg><span data-i18n="save"></span></button>
       </div>
     </form>
   </dialog>
 
-  <dialog id="importDialog" class="modal import-dialog">
+  <dialog id="importDialog" class="modal import-dialog" aria-labelledby="importHeading">
     <form method="dialog">
       <h2 id="importHeading"></h2>
       <p data-i18n="importQuestion"></p>
       <div class="dialog-buttons">
-        <button value="cancel" class="secondary"><svg class="icon"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
+        <button value="cancel" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
         <span class="spacer"></span>
-        <button value="add" class="secondary"><svg class="icon"><use href="#i-plus"/></svg><span data-i18n="importAdd"></span></button>
-        <button value="replace"><svg class="icon"><use href="#i-swap"/></svg><span data-i18n="importReplace"></span></button>
+        <button value="add" class="secondary"><svg class="icon" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="importAdd"></span></button>
+        <button value="replace"><svg class="icon" aria-hidden="true"><use href="#i-swap"/></svg><span data-i18n="importReplace"></span></button>
       </div>
     </form>
   </dialog>

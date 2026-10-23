@@ -423,6 +423,11 @@ async function assignKey(event) {
     entry.sound.key = code.startsWith('Digit') ? code.slice(5) : event.key;
   }
   for (const item of changed) renderPad(item);
+  announce(
+    entry.sound.key
+      ? t('announceKey', { name: entry.sound.name, key: keyLabel(entry.sound.key) })
+      : t('announceKeyRemoved', { name: entry.sound.name }),
+  );
   await save(...changed.map((item) => item.sound));
 }
 
@@ -609,6 +614,26 @@ async function finishDrag(drag) {
   drag.ghost.remove();
   document.body.classList.remove('reordering');
   drag.el.classList.remove('drag-placeholder');
+  await saveOrder();
+}
+
+// Keyboard alternative to dragging, from the pad menu: one step at a time.
+async function movePad(id, step) {
+  const entry = sounds.get(id);
+  const pads = [...grid.children];
+  const position = pads.indexOf(entry.el) + step;
+  const neighbour = pads[position];
+  if (!neighbour) return;
+  if (step < 0) neighbour.before(entry.el);
+  else neighbour.after(entry.el);
+  entry.el.querySelector('.play').focus({ preventScroll: true });
+  entry.el.scrollIntoView({ block: 'nearest' });
+  announce(t('announceMoved', { name: entry.sound.name, position: position + 1 }));
+  await saveOrder();
+}
+
+// Saves the order the pads have on screen.
+async function saveOrder() {
   const byEl = new Map([...sounds.values()].map((entry) => [entry.el, entry]));
   const pads = [...grid.children];
   for (let i = 0; i < pads.length; i++) {
@@ -691,6 +716,30 @@ function renderTrim() {
   $('#trimStartLabel').textContent = `${trim.start.toFixed(2)}s`;
   $('#trimEndLabel').textContent = `${trim.end.toFixed(2)}s`;
   $('#trimLengthLabel').textContent = `${(trim.end - trim.start).toFixed(2)}s`;
+  for (const [handle, time] of [[$('#trimHandleStart'), trim.start], [$('#trimHandleEnd'), trim.end]]) {
+    handle.setAttribute('aria-valuemin', '0');
+    handle.setAttribute('aria-valuemax', total.toFixed(2));
+    handle.setAttribute('aria-valuenow', time.toFixed(2));
+    handle.setAttribute('aria-valuetext', `${time.toFixed(2)}s`);
+  }
+}
+
+// The handles are sliders for the keyboard too: arrows move by 0.05 s,
+// Shift+arrows by 0.5 s, Home/End to the edges.
+for (const [handle, which] of [[$('#trimHandleStart'), 'start'], [$('#trimHandleEnd'), 'end']]) {
+  handle.addEventListener('keydown', (e) => {
+    const step = e.shiftKey ? 0.5 : 0.05;
+    const moves = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step };
+    let time;
+    if (e.key in moves) time = trim[which] + moves[e.key];
+    else if (e.key === 'Home') time = 0;
+    else if (e.key === 'End') time = trim.buffer.duration;
+    else return;
+    e.preventDefault();
+    dragging = which;
+    moveHandle(time);
+    dragging = null;
+  });
 }
 
 function timeAt(clientX) {
@@ -1024,14 +1073,24 @@ async function toggleRecording() {
     recorder = null;
     if (!blob.size) return;
     const trimmed = await trimRecording(blob, duration);
-    await createSound(trimmed.blob, t('soundName', { n: sounds.size + 1 }), trimmed.duration, trimmed.original);
+    const name = t('soundName', { n: sounds.size + 1 });
+    await createSound(trimmed.blob, name, trimmed.duration, trimmed.original);
+    announce(t('announceRecordingSaved', { name }));
   };
   recorder.start();
   recordStart = performance.now();
   setRecordingUi(true);
 }
 
+// Tells screen reader users what just happened (the region is aria-live).
+function announce(message) {
+  const region = $('#announcer');
+  region.textContent = '';
+  requestAnimationFrame(() => (region.textContent = message));
+}
+
 function setRecordingUi(recording) {
+  if (recording) announce(t('announceRecording'));
   $('#recordBtn').classList.toggle('recording', recording);
   setLabel($('#recordLabel'), recording ? 'stop' : 'record');
   const timer = $('#timer');
@@ -1053,7 +1112,7 @@ function setRecordingUi(recording) {
 let openPopup = null; // { menu, anchor, onClose }
 
 function popupItems(menu) {
-  return [...menu.querySelectorAll('button, li')];
+  return [...menu.querySelectorAll('button:not(:disabled), li')];
 }
 
 function showPopup(menu, anchor, onClose) {
@@ -1160,11 +1219,22 @@ function openPadMenu(id, anchor) {
     return;
   }
   menuSoundId = id;
-  padMenu.querySelector('[data-action="loop"]').setAttribute('aria-checked', String(!!sounds.get(id).sound.loop));
+  const { el, sound } = sounds.get(id);
+  padMenu.querySelector('[data-action="loop"]').setAttribute('aria-checked', String(!!sound.loop));
+  padMenu.querySelector('[data-action="moveEarlier"]').disabled = !el.previousElementSibling;
+  padMenu.querySelector('[data-action="moveLater"]').disabled = !el.nextElementSibling;
   showPopup(padMenu, anchor, () => (menuSoundId = null));
 }
 
-const PAD_ACTIONS = { assign: startAssign, trim: openTrim, rename, loop: toggleLoop, delete: removePad };
+const PAD_ACTIONS = {
+  assign: startAssign,
+  trim: openTrim,
+  rename,
+  loop: toggleLoop,
+  moveEarlier: (id) => movePad(id, -1),
+  moveLater: (id) => movePad(id, 1),
+  delete: removePad,
+};
 
 padMenu.addEventListener('click', (e) => {
   const item = e.target.closest('[data-action]');
@@ -1189,7 +1259,7 @@ for (const [code, { name }] of Object.entries(LANGUAGES)) {
   item.tabIndex = -1;
   item.lang = code;
   item.dataset.code = code;
-  item.innerHTML = '<img class="flag" alt=""><span></span><svg class="icon check"><use href="#i-check"/></svg>';
+  item.innerHTML = '<img class="flag" alt=""><span></span><svg class="icon check" aria-hidden="true"><use href="#i-check"/></svg>';
   item.querySelector('img').src = flagUrl(code);
   item.querySelector('span').textContent = name;
   languageList.append(item);
