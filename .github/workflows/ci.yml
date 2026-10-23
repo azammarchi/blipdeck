@@ -42,6 +42,15 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps webkit firefox chromium
         timeout-minutes: 5
+      # GitHub's Linux machines have no sound card. Chromium and WebKit fall back
+      # to a silent output by themselves; Firefox needs an audio server, or its
+      # audio clock never moves.
+      - name: Start a virtual sound card
+        run: |
+          sudo apt-get install -y --no-install-recommends pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=virtual
+          pactl set-default-sink virtual
       - run: npm test
       - uses: actions/upload-artifact@v4
         if: failure()
