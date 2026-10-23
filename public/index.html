@@ -143,6 +143,10 @@
         <button type="button" id="trimAutoBtn" class="secondary" data-i18n-title="removeSilenceTitle">
           <svg class="icon"><use href="#i-sparkles"/></svg><span data-i18n="removeSilence"></span>
         </button>
+        <!-- Only once the sound has been trimmed: undoes every trim. -->
+        <button type="button" id="trimRestoreBtn" class="secondary" data-i18n-title="restoreOriginalTitle" hidden>
+          <svg class="icon"><use href="#i-reset"/></svg><span data-i18n="restoreOriginal"></span>
+        </button>
         <span class="spacer"></span>
         <button value="cancel" class="secondary"><svg class="icon"><use href="#i-x"/></svg><span data-i18n="cancel"></span></button>
         <button type="button" id="trimSaveBtn"><svg class="icon"><use href="#i-check"/></svg><span data-i18n="save"></span></button>

@@ -105,4 +105,57 @@ test('recordings are saved without their silent edges', async ({ page, browserNa
   // About 0.6 s of tone plus margins, far less than the 2 s recorded.
   expect(seconds).toBeGreaterThan(0.5);
   expect(seconds).toBeLessThan(1.2);
+
+  // The raw take is kept: the automatic trim can be undone.
+  await openTrimFor(page, 'Sound 2');
+  await page.locator('#trimRestoreBtn').click();
+  await expect.poll(() => bufferLength(page, 'Sound 2')).toBeGreaterThan(1.5);
+});
+
+test.describe('restoring the untrimmed sound', () => {
+  test('appears only after a trim, and undoes it for good', async ({ page }) => {
+    await openTrimFor(page, 'Padded');
+    await expect(page.locator('#trimRestoreBtn')).toBeHidden();
+    await page.locator('#trimAutoBtn').click();
+    await page.locator('#trimSaveBtn').click();
+    await expect.poll(() => bufferLength(page, 'Padded')).toBeCloseTo(1.1, 1);
+
+    // A second trim on top of the first: the original stays the very first audio.
+    await openTrimFor(page, 'Padded');
+    await expect(page.locator('#trimRestoreBtn')).toBeVisible();
+    const wave = await page.locator('.wave-wrap').boundingBox();
+    await page.mouse.move(wave.x + 2, wave.y + wave.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(wave.x + wave.width / 2, wave.y + wave.height / 2, { steps: 6 });
+    await page.mouse.up();
+    await page.locator('#trimSaveBtn').click();
+    await expect.poll(() => bufferLength(page, 'Padded')).toBeLessThan(0.7);
+
+    await openTrimFor(page, 'Padded');
+    await page.locator('#trimRestoreBtn').click();
+    await expect(page.locator('#trimDialog')).toBeHidden();
+    await expect.poll(() => bufferLength(page, 'Padded')).toBeCloseTo(2, 1);
+    await expect(pad(page, 'Padded').locator('.duration')).toHaveText('2.0s');
+
+    // Saved: after a reload it's still the full sound, with nothing left to restore.
+    await expect.poll(() => page.evaluate(async () => (await db.all()).find((s) => s.name === 'Padded')?.original)).toBeUndefined();
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+    await expect.poll(() => bufferLength(page, 'Padded')).toBeCloseTo(2, 1);
+    await openTrimFor(page, 'Padded');
+    await expect(page.locator('#trimRestoreBtn')).toBeHidden();
+  });
+
+  test('the original survives a reload', async ({ page }) => {
+    await openTrimFor(page, 'Padded');
+    await page.locator('#trimAutoBtn').click();
+    await page.locator('#trimSaveBtn').click();
+    await expect.poll(() => page.evaluate(async () => !!(await db.all()).find((s) => s.name === 'Padded')?.original)).toBe(true);
+    await page.reload();
+    await page.waitForFunction(() => document.documentElement.dataset.ready === 'true');
+    await openTrimFor(page, 'Padded');
+    await expect(page.locator('#trimRestoreBtn')).toBeVisible();
+    await page.locator('#trimRestoreBtn').click();
+    await expect.poll(() => bufferLength(page, 'Padded')).toBeCloseTo(2, 1);
+  });
 });

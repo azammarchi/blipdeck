@@ -187,7 +187,14 @@ async function handleApi(req, res, url) {
       sendJson(res, 404, { error: 'No audio' });
       return;
     }
-    const data = await fsp.readFile(path.join(SOUNDS_DIR, entry[fileField]));
+    let data;
+    try {
+      data = await fsp.readFile(path.join(SOUNDS_DIR, entry[fileField]));
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+      sendJson(res, 404, { error: `Missing file: ${entry[fileField]}` });
+      return;
+    }
     res.writeHead(200, { 'Content-Type': entry[typeField] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(data);
     return;

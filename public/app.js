@@ -88,7 +88,9 @@ async function api(method, path, body, type) {
 
 // Audio is only uploaded when it changed: renaming, reordering or looping a
 // pad just saves its details.
-const savedAudio = new WeakSet();
+// Per sound, the exact audio the server has: after "Restore original" a sound
+// gets back audio it had before, which must be uploaded again all the same.
+const savedAudio = new Map(); // id -> the audio the server has
 const savedOriginals = new Map(); // id -> the untrimmed audio the server has
 let boardWasNew = false;
 
@@ -110,7 +112,7 @@ const fileStore = {
           console.warn(`Skipping "${meta.name}": its audio file can't be read`, err);
           return null;
         }
-        savedAudio.add(sound.blob);
+        savedAudio.set(meta.id, sound.blob);
         if (meta.originalFile) {
           try {
             sound.original = await (await api('GET', `sounds/${meta.id}/audio?original`)).blob();
@@ -127,9 +129,9 @@ const fileStore = {
   put: async (sound) => {
     const details = Object.fromEntries(DETAIL_FIELDS.filter((f) => f in sound).map((f) => [f, sound[f]]));
     await api('PUT', `sounds/${sound.id}`, JSON.stringify(details), 'application/json');
-    if (!savedAudio.has(sound.blob)) {
+    if (savedAudio.get(sound.id) !== sound.blob) {
       await api('PUT', `sounds/${sound.id}/audio`, sound.blob, sound.blob.type || 'application/octet-stream');
-      savedAudio.add(sound.blob);
+      savedAudio.set(sound.id, sound.blob);
     }
     if (sound.original && savedOriginals.get(sound.id) !== sound.original) {
       await api('PUT', `sounds/${sound.id}/audio?original`, sound.original, sound.original.type || 'application/octet-stream');
@@ -141,6 +143,7 @@ const fileStore = {
   },
   remove: async (id) => {
     await api('DELETE', `sounds/${id}`);
+    savedAudio.delete(id);
     savedOriginals.delete(id);
   },
   // A brand-new sounds/ folder, unless this browser already saw a first run
@@ -439,11 +442,14 @@ function updateEmptyState() {
   updateBackupNotice();
 }
 
-async function createSound(blob, name, duration) {
+// `original`: the untrimmed audio, when the sound was trimmed on creation
+// (recordings lose their silent edges automatically).
+async function createSound(blob, name, duration, original) {
   const sound = {
     id: crypto.randomUUID(),
     name,
     blob,
+    ...(original && { original }),
     duration: duration || 0,
     color: nextColor(),
     code: null,
@@ -638,6 +644,7 @@ async function openTrim(id) {
   }
   Object.assign(trim, { entry, buffer, start: 0, end: buffer.duration });
   renderTrimHeading();
+  $('#trimRestoreBtn').hidden = !entry.sound.original;
   trimDialog.showModal();
   drawWaveform();
   renderTrim();
@@ -796,7 +803,8 @@ async function trimRecording(blob, duration) {
     const buffer = await getAudioContext().decodeAudioData(await blob.arrayBuffer());
     const bounds = silenceBounds(buffer);
     if (!bounds || bounds.end - bounds.start > buffer.duration - 0.02) return { blob, duration };
-    return { blob: encodeWav(buffer, bounds.start, bounds.end), duration: bounds.end - bounds.start };
+    // The raw recording is kept, so the automatic trim can be undone.
+    return { blob: encodeWav(buffer, bounds.start, bounds.end), duration: bounds.end - bounds.start, original: blob };
   } catch (err) {
     console.warn('Automatic trim failed', err);
     return { blob, duration };
@@ -839,9 +847,12 @@ function encodeWav(buffer, start, end) {
   return new Blob([view], { type: 'audio/wav' });
 }
 
+// The first trim keeps the untrimmed audio as `original`, so "Restore
+// original" can undo every trim since.
 async function saveTrim() {
   const { entry, buffer, start, end } = trim;
   stopPreview();
+  entry.sound.original ||= entry.sound.blob;
   entry.sound.blob = encodeWav(buffer, start, end);
   entry.sound.duration = end - start;
   forgetBuffer(entry);
@@ -854,6 +865,25 @@ async function saveTrim() {
 $('#trimPreviewBtn').addEventListener('click', () => (trim.source ? stopPreview() : startPreview()));
 $('#trimAutoBtn').addEventListener('click', autoTrim);
 $('#trimSaveBtn').addEventListener('click', saveTrim);
+
+async function restoreOriginal() {
+  const { entry } = trim;
+  if (!entry?.sound.original) return;
+  stopPreview();
+  entry.sound.blob = entry.sound.original;
+  delete entry.sound.original;
+  forgetBuffer(entry);
+  trimDialog.close();
+  try {
+    entry.sound.duration = (await loadBuffer(entry)).duration;
+  } catch (err) {
+    console.warn('Could not decode the original sound', err);
+  }
+  renderPad(entry);
+  await save(entry.sound);
+}
+
+$('#trimRestoreBtn').addEventListener('click', restoreOriginal);
 trimDialog.addEventListener('close', () => {
   stopPreview();
   trim.entry = null;
@@ -888,7 +918,11 @@ async function exportBank() {
     version: 1,
     exportedAt: new Date().toISOString(),
     sounds: await Promise.all(
-      list.map(async ({ blob, id, ...meta }) => ({ ...meta, audio: await blobToDataUrl(blob) })),
+      list.map(async ({ blob, original, id, ...meta }) => ({
+        ...meta,
+        audio: await blobToDataUrl(blob),
+        ...(original && { originalAudio: await blobToDataUrl(original) }),
+      })),
     ),
   };
   const url = URL.createObjectURL(new Blob([JSON.stringify(bank)], { type: 'application/json' }));
@@ -938,6 +972,7 @@ async function importBank(file) {
   const usedCodes = new Set([...sounds.values()].map((e) => e.sound.code).filter(Boolean));
   for (const item of bank.sounds) {
     const blob = await (await fetch(item.audio)).blob();
+    const original = item.originalAudio ? await (await fetch(item.originalAudio)).blob() : undefined;
     // When adding, keys already in use stay with the existing sounds.
     const keepKey = item.code && !usedCodes.has(item.code) && !RESERVED_CODES.has(item.code);
     if (keepKey) usedCodes.add(item.code);
@@ -945,6 +980,7 @@ async function importBank(file) {
       id: crypto.randomUUID(),
       name: String(item.name || t('defaultName')),
       blob,
+      ...(original && { original }),
       duration: Number(item.duration) || 0,
       color: item.color || nextColor(),
       code: keepKey ? item.code : null,
@@ -988,7 +1024,7 @@ async function toggleRecording() {
     recorder = null;
     if (!blob.size) return;
     const trimmed = await trimRecording(blob, duration);
-    await createSound(trimmed.blob, t('soundName', { n: sounds.size + 1 }), trimmed.duration);
+    await createSound(trimmed.blob, t('soundName', { n: sounds.size + 1 }), trimmed.duration, trimmed.original);
   };
   recorder.start();
   recordStart = performance.now();

@@ -64,7 +64,7 @@ On the first launch you'll find a sample pad, **Ding**, on the `1` key. Delete i
 | Stop everything | **Stop all** or `Esc` |
 | Change language | The flag menu in the top bar |
 
-Trimming replaces the original audio (saved as WAV), so it can't be undone after saving.
+The first trim keeps the untrimmed audio: **Restore original** in the trim window undoes every trim. Recordings keep their raw take too, so their automatic silence removal can be undone the same way.
 
 ## Backup and moving to another computer
 

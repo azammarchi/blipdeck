@@ -86,6 +86,8 @@ test('export and import round-trip names, keys and loop; import can add or repla
   await page.evaluate(async () => {
     const snare = [...sounds.values()].find((e) => e.sound.name === 'Snare');
     snare.sound.loop = true;
+    // Pretend Snare was trimmed: its untrimmed audio must travel with it.
+    snare.sound.original = snare.sound.blob;
     await db.put(snare.sound);
   });
 
@@ -98,6 +100,7 @@ test('export and import round-trip names, keys and loop; import can add or repla
   const bank = JSON.parse(fs.readFileSync(file, 'utf8'));
   expect(bank.format).toBe('blipdeck-bank');
   expect(bank.sounds.map((s) => `${s.name}:${s.key}:${s.loop}`)).toEqual(['Kick:1:false', 'Snare:2:true']);
+  expect(bank.sounds.map((s) => !!s.originalAudio)).toEqual([false, true]);
 
   // Add: the imported keys are already taken, so the copies get none.
   await page.locator('#importInput').setInputFiles(file);
@@ -111,6 +114,7 @@ test('export and import round-trip names, keys and loop; import can add or repla
   await page.locator('#importDialog button[value="replace"]').click();
   await expect.poll(() => keys(page)).toEqual(['Kick=1', 'Snare=2']);
   await expect(pad(page, 'Snare')).toHaveClass(/looping/);
+  expect(await page.evaluate(() => [...sounds.values()].map((e) => !!e.sound.original))).toEqual([false, true]);
 
   // Imported audio is real audio.
   await page.locator('main').click({ position: { x: 4, y: 4 } });
