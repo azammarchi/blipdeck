@@ -30,7 +30,7 @@ jobs:
       # The browsers are cached between runs, keyed by the Playwright version in
       # the lock file; the system libraries they need are installed every time.
       - id: playwright-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/ms-playwright
           key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
