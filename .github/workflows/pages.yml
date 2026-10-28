@@ -35,4 +35,4 @@ jobs:
         with:
           path: ${{ vars.PAGES_DIR }}
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
