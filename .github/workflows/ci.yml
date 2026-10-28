@@ -29,11 +29,16 @@ jobs:
       - run: npm ci
       # The browsers are cached between runs, keyed by the Playwright version in
       # the lock file; the system libraries they need are installed every time.
+      - id: image
+        shell: bash
+        run: echo "name=$ImageOS" >> "$GITHUB_OUTPUT"
       - id: playwright-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          # The system image (ubuntu24, macos15...) is part of the key: browsers
+          # built for one image don't start on the next one.
+          key: playwright-${{ runner.os }}-${{ steps.image.outputs.name }}-${{ hashFiles('package-lock.json') }}
       - name: Install browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps webkit firefox chromium
