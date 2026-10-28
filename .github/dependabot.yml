@@ -1,0 +1,21 @@
+# Keeps the workflows' actions and the test tools (Playwright, axe-core) up to
+# date, with one grouped pull request a month for each.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
+      include: scope
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      test-tools:
+        patterns: ['*']
+    commit-message:
+      prefix: test
+      include: scope
