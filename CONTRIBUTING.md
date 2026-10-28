@@ -53,3 +53,5 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org): `typ
 ## Pull requests
 
 Keep each pull request focused on one change, fill in the template, and make sure `npm test` passes. By contributing you agree that your work is released under the [MIT license](LICENSE) and that you'll follow the [code of conduct](CODE_OF_CONDUCT.md).
+
+Releases are described in [RELEASING.md](RELEASING.md).

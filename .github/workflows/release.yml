@@ -1,0 +1,29 @@
+# When a version tag (v1.2.3) is pushed, drafts a GitHub Release whose notes
+# list the commits since the previous tag, grouped by type. Write the opening
+# paragraph and publish it from the Releases page. See RELEASING.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  draft:
+    name: Draft release notes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Write the notes
+        run: bash scripts/release-notes.sh "$GITHUB_REF_NAME" > notes.md
+      - name: Create the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PROJECT_NAME: 'Blipdeck'
+        run: |
+          gh release create "$GITHUB_REF_NAME" --draft --verify-tag \
+            --title "$PROJECT_NAME ${GITHUB_REF_NAME#v}" --notes-file notes.md

@@ -1,5 +1,5 @@
-# Runs the end-to-end tests on every push and pull request, and publishes the
-# online demo to GitHub Pages only when they pass on main.
+# Runs the end-to-end tests on every push and pull request. The online demo
+# is published by pages.yml, when a release is published.
 name: CI
 
 on:
@@ -60,26 +60,3 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 14
-
-  deploy:
-    name: Deploy demo
-    needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    concurrency:
-      group: pages
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/configure-pages@v5
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: public
-      - id: deployment
-        uses: actions/deploy-pages@v4

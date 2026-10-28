@@ -1,0 +1,38 @@
+# Publishes the online demo to GitHub Pages when a release is published, so
+# the demo always matches the latest version. It publishes the folder named by
+# the repository variable PAGES_DIR (for example "public"), as it is at the
+# release's tag; without the variable, nothing happens. It can also be run by
+# hand from the Actions tab, to republish.
+name: Pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy demo
+    if: vars.PAGES_DIR != '' && !github.event.release.prerelease
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ${{ vars.PAGES_DIR }}
+      - id: deployment
+        uses: actions/deploy-pages@v4

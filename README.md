@@ -99,7 +99,7 @@ npm test
 
 `npm install` only adds the test tools: the app itself has no dependencies. The first command fetches Playwright and axe-core, the second the three browsers they drive.
 
-On GitHub, [CI](.github/workflows/ci.yml) runs the tests on every push and pull request, and the online demo is published only when they pass.
+On GitHub, [CI](.github/workflows/ci.yml) runs the tests on every push and pull request. The online demo is published with each release, so it always matches the latest version (see [RELEASING.md](RELEASING.md)).
 
 ## Adding a language
 
